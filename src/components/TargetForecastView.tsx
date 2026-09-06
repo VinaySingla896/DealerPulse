@@ -1,9 +1,14 @@
 import React from 'react';
 import { DealershipData, BranchForecast } from '../types';
 import { useDashboardStore } from '../store/useDashboardStore';
-import { calculateBranchForecast, calculateGroupTargetSummary } from '../lib/metrics';
+import {
+  calculateBranchForecast,
+  calculateGroupTargetSummary,
+  calculateMonthlyTrend,
+} from '../lib/metrics';
 import { formatINR, formatPct } from '../lib/data';
 import { isFullPeriod, periodLabel } from '../lib/period';
+import { DeliveriesVsTargetChart, ProjectedAttainmentChart } from './charts';
 import { Target, TrendingUp, TrendingDown, AlertTriangle, CheckCircle2, ArrowRight } from 'lucide-react';
 
 interface TargetForecastViewProps {
@@ -46,6 +51,7 @@ export const TargetForecastView: React.FC<TargetForecastViewProps> = ({ data }) 
 
   const forecasts = calculateBranchForecast(data).sort((a, b) => a.vsGroupPace - b.vsGroupPace);
   const group = calculateGroupTargetSummary(data);
+  const monthlyTrend = calculateMonthlyTrend(data);
   const expectedAdditionalUnits = forecasts.reduce((s, f) => s + f.expectedAdditionalUnits, 0);
 
   const worst = forecasts[0];
@@ -166,6 +172,28 @@ export const TargetForecastView: React.FC<TargetForecastViewProps> = ({ data }) 
           </div>
         </div>
       )}
+
+      {/* Charts: monthly delivered vs target + projected attainment by branch */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+          <h3 className="text-sm font-bold text-slate-900">Delivered vs Target by Month</h3>
+          <p className="text-xs text-slate-500 mb-3">Group units delivered against the summed monthly target</p>
+          {monthlyTrend.length > 1 ? (
+            <DeliveriesVsTargetChart data={monthlyTrend} />
+          ) : (
+            <p className="text-xs text-slate-400 py-8 text-center">
+              Select a wider time range to see the monthly comparison.
+            </p>
+          )}
+        </div>
+        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+          <h3 className="text-sm font-bold text-slate-900">Projected Attainment by Branch</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            Delivered (blue) + expected pipeline (amber) as % of target
+          </p>
+          <ProjectedAttainmentChart data={forecasts} />
+        </div>
+      </div>
 
       {/* Per-branch attainment table */}
       <div className="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">

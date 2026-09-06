@@ -7,10 +7,12 @@ import {
   calculateSourceMetrics,
   calculatePipelineHealth,
   calculateDeliveryBottlenecks,
+  calculateMonthlyTrend,
   deriveGroupHeadlines
 } from '../lib/metrics';
 import { formatINR, formatPct } from '../lib/data';
 import { isFullPeriod, periodLabel } from '../lib/period';
+import { MonthlyActivityChart, BranchConversionChart } from './charts';
 import { 
   AlertTriangle, 
   TrendingUp, 
@@ -52,6 +54,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
   const sourceMetrics = calculateSourceMetrics(filteredLeads);
   const pipelineHealth = calculatePipelineHealth(filteredLeads);
   const bottlenecks = calculateDeliveryBottlenecks(data.deliveries);
+  const monthlyTrend = calculateMonthlyTrend(data);
 
   const deliveredCount = funnel.statusCounts.delivered;
   const groupMeanConversion =
@@ -278,6 +281,33 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
           <p className="mt-1 text-[11px] text-slate-500">
             Median delivery {bottlenecks.medianDays} days; P90 {bottlenecks.p90Days} days
           </p>
+        </div>
+      </div>
+
+      {/* Group momentum: monthly activity trend + branch conversion comparison */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-7 bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+          <h3 className="text-sm font-bold text-slate-900">Monthly Momentum</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            Leads created vs vehicles delivered vs the monthly unit target
+          </p>
+          {monthlyTrend.length > 1 ? (
+            <MonthlyActivityChart data={monthlyTrend} />
+          ) : (
+            <p className="text-xs text-slate-400 py-8 text-center">
+              Select a wider time range to see the monthly trend.
+            </p>
+          )}
+        </div>
+        <div className="lg:col-span-5 bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
+          <h3 className="text-sm font-bold text-slate-900">Conversion by Branch</h3>
+          <p className="text-xs text-slate-500 mb-3">
+            Lead-to-delivery rate · green = ahead of the {formatPct(groupMeanConversion)} branch mean, red = well behind
+          </p>
+          <BranchConversionChart
+            data={branchMetrics.map((b) => ({ branchName: b.branchName, conversionRate: b.conversionRate }))}
+            groupMean={groupMeanConversion}
+          />
         </div>
       </div>
 

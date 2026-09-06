@@ -594,3 +594,57 @@ export function countEventsInMonth(leads: Lead[], month: string): number {
     0
   );
 }
+
+export type MonthlyTrendPoint = {
+  month: string; // '2025-06'
+  label: string; // 'Jun'
+  leadsCreated: number;
+  delivered: number; // deliveries whose delivery_date falls in the month
+  deliveredRevenue: number;
+  targetUnits: number;
+  conversionRate: number; // delivered ÷ leadsCreated for that month (cohort-agnostic pace proxy)
+};
+
+/**
+ * Month-by-month activity: leads created, vehicles delivered (by delivery date),
+ * revenue, and the summed branch target for the month. Drives the trend charts.
+ */
+export function calculateMonthlyTrend(data: DealershipData): MonthlyTrendPoint[] {
+  const deliveryMap = new Map(data.deliveries.map((d) => [d.lead_id, d]));
+  const leadValue = new Map(data.leads.map((l) => [l.id, l.deal_value]));
+
+  const months = new Set<string>();
+  data.leads.forEach((l) => months.add(l.created_at.slice(0, 7)));
+  data.deliveries.forEach((d) => months.add(d.delivery_date.slice(0, 7)));
+  data.targets.forEach((t) => months.add(t.month));
+
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  return [...months]
+    .sort()
+    .map((month) => {
+      const leadsCreated = data.leads.filter((l) => l.created_at.slice(0, 7) === month).length;
+
+      const monthDeliveries = data.deliveries.filter((d) => d.delivery_date.slice(0, 7) === month);
+      const delivered = monthDeliveries.length;
+      const deliveredRevenue = monthDeliveries.reduce(
+        (sum, d) => sum + (leadValue.get(d.lead_id) ?? 0),
+        0
+      );
+
+      const targetUnits = data.targets
+        .filter((t) => t.month === month)
+        .reduce((sum, t) => sum + t.target_units, 0);
+
+      return {
+        month,
+        label: MONTH_NAMES[Number(month.slice(5, 7)) - 1] ?? month,
+        leadsCreated,
+        delivered,
+        deliveredRevenue,
+        targetUnits,
+        conversionRate: leadsCreated > 0 ? delivered / leadsCreated : 0,
+      };
+    })
+    .filter((p) => p.leadsCreated > 0 || p.delivered > 0 || p.targetUnits > 0);
+}
