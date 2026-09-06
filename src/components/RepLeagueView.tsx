@@ -2,19 +2,12 @@ import React, { useState } from 'react';
 import { DealershipData, SalesRep } from '../types';
 import { useDashboardStore } from '../store/useDashboardStore';
 import { calculateRepMetrics } from '../lib/metrics';
-import { formatINR, formatPct } from '../lib/data';
-import { 
-  Users, 
-  AlertTriangle, 
-  Award, 
-  TrendingUp, 
-  TrendingDown, 
-  UserX, 
-  CheckCircle2, 
-  Filter, 
-  SlidersHorizontal,
-  ArrowRight,
-  ShieldAlert
+import { formatINR, formatPct, calculateIdleDays, displayLostReason } from '../lib/data';
+import {
+  AlertTriangle,
+  Award,
+  ShieldAlert,
+  X
 } from 'lucide-react';
 
 interface RepLeagueViewProps {
@@ -40,10 +33,100 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
   // Group by performance tier
   const sortedReps = [...displayReps].sort((a, b) => b.conversionRate - a.conversionRate);
 
+  // Rep-level drill-down: every lead assigned to the selected rep, within the current period scope
+  const repLeads = selectedRep
+    ? data.leads
+        .filter((l) => l.assigned_to === selectedRep.id)
+        .sort((a, b) => b.deal_value - a.deal_value)
+    : [];
+  const selectedRepMetric = selectedRep
+    ? repMetrics.find((r) => r.repId === selectedRep.id)
+    : undefined;
+
   return (
     <div className="space-y-6">
-      {/* ⚠️ Outlier Highlight Card (Rule 6: Venkat Mishra) */}
-      {outliers.length > 0 && (
+      {selectedRep && (
+        <div className="bg-white border-2 border-slate-300 rounded-xl shadow-sm overflow-hidden">
+          <div className="flex items-start justify-between gap-3 px-5 py-4 bg-slate-900 text-white">
+            <div>
+              <h3 className="text-sm font-bold flex items-center gap-2">
+                {selectedRep.name}
+                <span className="text-[10px] font-medium text-slate-300">{selectedRep.id}</span>
+              </h3>
+              <p className="text-[11px] text-slate-300 mt-0.5">
+                {selectedRepMetric?.branchName} ·{' '}
+                {selectedRep.role === 'branch_manager' ? 'Branch Manager' : 'Sales Officer'} ·{' '}
+                {repLeads.length} leads ·{' '}
+                {selectedRepMetric ? formatPct(selectedRepMetric.conversionRate) : '—'} conversion ·{' '}
+                {selectedRepMetric ? formatINR(selectedRepMetric.deliveredRevenue) : '—'} delivered
+              </p>
+            </div>
+            <button
+              onClick={() => setSelectedRep(null)}
+              className="p-1 rounded-md hover:bg-white/10 transition-colors shrink-0"
+              aria-label="Close rep detail"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="overflow-x-auto max-h-96 overflow-y-auto">
+            {repLeads.length === 0 ? (
+              <div className="p-6 text-center text-xs text-slate-500">
+                No leads assigned to this rep in the selected period.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs text-slate-700">
+                <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0">
+                  <tr>
+                    <th className="py-2.5 px-4">Customer</th>
+                    <th className="py-2.5 px-3">Model</th>
+                    <th className="py-2.5 px-3">Status</th>
+                    <th className="py-2.5 px-3 text-right">Idle Days</th>
+                    <th className="py-2.5 px-3 text-right">Deal Value</th>
+                    <th className="py-2.5 px-4">Latest Note</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {repLeads.map((l) => {
+                    const idle = calculateIdleDays(l.last_activity_at);
+                    return (
+                      <tr key={l.id} className="hover:bg-slate-50/80">
+                        <td className="py-2 px-4 font-semibold text-slate-900">{l.customer_name}</td>
+                        <td className="py-2 px-3">{l.model_interested}</td>
+                        <td className="py-2 px-3">
+                          <span className="inline-flex px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                            {l.status.replace('_', ' ')}
+                          </span>
+                        </td>
+                        <td className="py-2 px-3 text-right font-semibold">
+                          {l.status === 'delivered' || l.status === 'lost' ? '—' : `${idle.toFixed(0)}d`}
+                        </td>
+                        <td className="py-2 px-3 text-right font-bold text-slate-900">
+                          {formatINR(l.deal_value)}
+                        </td>
+                        <td className="py-2 px-4 max-w-xs truncate text-[11px] text-slate-500">
+                          {l.status === 'lost'
+                            ? displayLostReason(l.lost_reason)
+                            : l.status_history[l.status_history.length - 1]?.note || '—'}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ⚠️ Outlier Highlight Card (Rule 6: statistical under-performers) */}
+      {outliers.length > 0 && (() => {
+        const worst = [...outliers].sort((a, b) => a.zScore - b.zScore)[0];
+        const peers = repMetrics
+          .filter((r) => r.branchId === worst.branchId && r.role === 'sales_officer' && !r.isOutlier)
+          .sort((a, b) => b.conversionRate - a.conversionRate);
+        const topPeer = peers[0];
+        return (
         <div id="card-outlier-callout" className="bg-red-50 border-2 border-red-300 rounded-xl p-5 shadow-xs">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div className="flex items-start space-x-3.5">
@@ -53,17 +136,21 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
               <div>
                 <div className="flex flex-wrap items-center gap-2">
                   <h2 className="text-base font-bold text-red-950">
-                    Rule 6 Statistical Outlier Alert: Venkat Mishra (SR16)
+                    Rule 6 Statistical Outlier Alert: {worst.repName} ({worst.repId})
                   </h2>
                   <span className="px-2 py-0.5 rounded-full text-xs font-black bg-red-200 text-red-900 uppercase">
-                    z-score: -1.53 (&lt; -1.5&sigma;)
+                    z-score: {worst.zScore.toFixed(2)} (&lt; -1.5&sigma;)
                   </span>
                 </div>
                 <p className="mt-1 text-xs sm:text-sm text-red-800 leading-relaxed max-w-4xl">
-                  Venkat Mishra converts at only <strong className="text-red-950 font-bold underline">4.55%</strong> (1 delivery across 22 leads) 
-                  at Lakeside Toyota. This falls below the statistical threshold of <strong className="text-red-950 font-bold">4.60%</strong> 
-                  (Branch Mean: 7.77%, &sigma;: 2.11%). He received the highest allocation of leads in Bangalore (22 leads) while peer 
-                  <strong className="text-red-950 font-bold"> Varun Kamath (SR15)</strong> achieved <strong className="text-red-950 font-bold">11.11%</strong> (2 deliveries from 18 leads).
+                  {worst.repName} converts at only <strong className="text-red-950 font-bold underline">{formatPct(worst.conversionRate)}</strong>{' '}
+                  ({worst.deliveredUnits} {worst.deliveredUnits === 1 ? 'delivery' : 'deliveries'} across {worst.totalLeads} leads)
+                  at {worst.branchName}, more than 1.5 standard deviations below the branch mean.
+                  {topPeer && (
+                    <> Peer <strong className="text-red-950 font-bold">{topPeer.repName} ({topPeer.repId})</strong> achieved{' '}
+                    <strong className="text-red-950 font-bold">{formatPct(topPeer.conversionRate)}</strong>{' '}
+                    ({topPeer.deliveredUnits} from {topPeer.totalLeads}) on comparable volume.</>
+                  )}
                 </p>
               </div>
             </div>
@@ -71,13 +158,13 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
             <div className="shrink-0">
               <button
                 onClick={() => {
-                  setSelectedBranchId('B3');
-                  const r = data.sales_reps.find((x) => x.id === 'SR16');
+                  setSelectedBranchId(worst.branchId);
+                  const r = data.sales_reps.find((x) => x.id === worst.repId);
                   if (r) setSelectedRep(r);
                 }}
                 className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
               >
-                Inspect Venkat's Leads
+                Inspect {worst.repName.split(' ')[0]}'s Leads
               </button>
             </div>
           </div>
@@ -89,15 +176,22 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
             </div>
             <div className="bg-white/80 rounded-md p-2.5 border border-red-200">
               <span className="font-bold text-red-900 block">Recommended Action</span>
-              <span className="text-red-700">Pair Venkat with Varun Kamath (11.11%) for 2-week objection handling shadowing.</span>
+              <span className="text-red-700">
+                Pair {worst.repName.split(' ')[0]}
+                {topPeer ? ` with ${topPeer.repName.split(' ')[0]} (${formatPct(topPeer.conversionRate)})` : ''} for a 2-week objection-handling shadow.
+              </span>
             </div>
             <div className="bg-white/80 rounded-md p-2.5 border border-red-200">
               <span className="font-bold text-red-900 block">Lead Rebalancing</span>
-              <span className="text-red-700">Reassign 10 fresh leads from Venkat to Varun to maximize immediate revenue capture.</span>
+              <span className="text-red-700">
+                Reassign fresh leads from {worst.repName.split(' ')[0]}
+                {topPeer ? ` to ${topPeer.repName.split(' ')[0]}` : ' to a top peer'} to maximize immediate revenue capture.
+              </span>
             </div>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {/* Controls & Trap 5 Notice */}
       <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -162,8 +256,13 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
                 return (
                   <tr
                     key={rep.repId}
-                    className={`hover:bg-slate-50/80 transition-colors ${
-                      isOutlier ? 'bg-red-50/50' : ''
+                    onClick={() => {
+                      const r = data.sales_reps.find((x) => x.id === rep.repId);
+                      setSelectedRep(r ?? null);
+                    }}
+                    title="View this rep's leads"
+                    className={`cursor-pointer hover:bg-slate-50/80 transition-colors ${
+                      selectedRep?.id === rep.repId ? 'bg-slate-100' : isOutlier ? 'bg-red-50/50' : ''
                     }`}
                   >
                     <td className="py-3 px-4">

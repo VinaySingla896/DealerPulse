@@ -1,13 +1,15 @@
 import React from 'react';
 import { DealershipData } from '../types';
 import { useDashboardStore } from '../store/useDashboardStore';
-import { 
-  calculateFunnelMetrics, 
-  calculateBranchMetrics, 
-  calculateSourceMetrics, 
-  calculatePipelineHealth 
+import {
+  calculateFunnelMetrics,
+  calculateBranchMetrics,
+  calculateSourceMetrics,
+  calculatePipelineHealth,
+  calculateDeliveryBottlenecks
 } from '../lib/metrics';
 import { formatINR, formatPct } from '../lib/data';
+import { isFullPeriod, periodLabel } from '../lib/period';
 import { 
   AlertTriangle, 
   TrendingUp, 
@@ -25,14 +27,19 @@ interface OverviewViewProps {
 }
 
 export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
-  const { 
-    selectedBranchId, 
-    setSelectedBranchId, 
+  const {
+    selectedBranchId,
+    setSelectedBranchId,
     setCurrentView,
-    selectedSource 
+    selectedSource,
+    periodStart,
+    periodEnd
   } = useDashboardStore();
 
-  // Filter leads based on selected branch and source
+  const period = { start: periodStart, end: periodEnd };
+  const fullScope = isFullPeriod(period) && selectedBranchId === 'all' && selectedSource === 'all';
+
+  // Filter leads based on selected branch and source (data is already period-scoped)
   const filteredLeads = data.leads.filter((lead) => {
     if (selectedBranchId !== 'all' && lead.branch_id !== selectedBranchId) return false;
     if (selectedSource !== 'all' && lead.source !== selectedSource) return false;
@@ -43,14 +50,33 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
   const branchMetrics = calculateBranchMetrics(data);
   const sourceMetrics = calculateSourceMetrics(filteredLeads);
   const pipelineHealth = calculatePipelineHealth(filteredLeads);
+  const bottlenecks = calculateDeliveryBottlenecks(data.deliveries);
 
-  const lakesideBranch = branchMetrics.find((b) => b.branchId === 'B3');
-  const groupMeanConversion = 0.3137; // 31.4%
+  const deliveredCount = funnel.statusCounts.delivered;
+  const groupMeanConversion =
+    branchMetrics.length > 0
+      ? branchMetrics.reduce((s, b) => s + b.conversionRate, 0) / branchMetrics.length
+      : 0;
+  const topSource = sourceMetrics[0];
+  const bottomSource = sourceMetrics[sourceMetrics.length - 1];
 
   return (
     <div className="space-y-6">
-      {/* 🚨 Priority 1: Lakeside Crisis Banner (Always prominent on Overview) */}
-      <div 
+      {!fullScope && (
+        <div className="flex items-center gap-2 text-xs text-slate-500 bg-slate-100 border border-slate-200 rounded-lg px-3 py-2">
+          <span className="font-semibold text-slate-700">Scoped view.</span>
+          <span>
+            Showing {periodLabel(period)}
+            {selectedBranchId !== 'all' && ' · single branch'}
+            {selectedSource !== 'all' && ' · single source'}. Figures below reflect this cohort;
+            the standing CEO findings are anchored to the full-year, all-branch view.
+          </span>
+        </div>
+      )}
+
+      {/* 🚨 Priority 1: Lakeside Crisis Banner (only meaningful on the full-year, all-branch view) */}
+      {fullScope && (
+      <div
         id="banner-lakeside-alert"
         className="bg-red-50 border-2 border-red-300 rounded-xl p-5 shadow-xs transition-all"
       >
@@ -120,6 +146,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
           </div>
         </div>
       </div>
+      )}
 
       {/* KPI Cards Strip */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3.5">
@@ -150,11 +177,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
               {formatPct(funnel.totalLeads > 0 ? funnel.statusCounts.delivered / funnel.totalLeads : 0)}
             </div>
             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-sm">
-              Baseline 31.4%
+              Group avg {formatPct(groupMeanConversion)}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-500">
-            160 delivered out of {funnel.totalLeads} total leads
+            {deliveredCount} delivered out of {funnel.totalLeads} total leads
           </p>
         </div>
 
@@ -177,7 +204,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
             </span>
           </div>
           <p className="mt-1 text-[11px] text-amber-700">
-            ₹7.68 Cr booked orders + ₹1.48 Cr sales leads
+            {formatINR(pipelineHealth.orderPlacedStaleValue)} booked orders +{' '}
+            {formatINR(pipelineHealth.preOrderStaleValue)} sales leads
           </p>
         </div>
 
@@ -212,14 +240,14 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
           </div>
           <div className="mt-2 flex items-baseline justify-between">
             <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              45.0%
+              {formatPct(bottlenecks.delayedRate)}
             </div>
             <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-sm">
-              72 of 160
+              {bottlenecks.delayedCount} of {bottlenecks.totalDeliveries}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-500">
-            Median delivery 17.0 days; 21 factory/transit
+            Median delivery {bottlenecks.medianDays} days; P90 {bottlenecks.p90Days} days
           </p>
         </div>
       </div>
@@ -230,7 +258,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
           <div>
             <h3 className="text-base font-bold text-slate-900">Branch Performance League Table</h3>
             <p className="text-xs text-slate-500">
-              Benchmark comparison against group mean conversion (31.4%) and intake contact SLA
+              Benchmark comparison against group mean conversion ({formatPct(groupMeanConversion)}) and intake contact SLA
             </p>
           </div>
           <span className="text-xs text-slate-500">
@@ -376,7 +404,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
               <p className="text-xs text-slate-500">Cumulative reach & stage-by-stage drop-off leaks</p>
             </div>
             <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-              510 Leads
+              {funnel.totalLeads} Leads
             </span>
           </div>
 
@@ -429,12 +457,29 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
             })}
           </div>
 
-          <div className="mt-5 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
-            <strong className="font-bold block mb-1">🔍 CEO Funnel Takeaway:</strong>
-            The biggest single leakage in the group is between <strong className="font-semibold">Lead Created &rarr; Contacted (119 leads, 23.3%)</strong>. 
-            Once a customer completes a test drive, conversion to delivery surges to <strong className="font-semibold">53.3%</strong> (160/300).
-            The operational priority must be ensuring 100% of leads receive a phone call within 2 hours.
-          </div>
+          {(() => {
+            const worst = funnel.stages
+              .slice(1)
+              .reduce((a, b) => (b.dropoffFromPrevPct > a.dropoffFromPrevPct ? b : a));
+            const prev = funnel.stages[funnel.stages.indexOf(worst) - 1];
+            const lostAtWorst = prev.count - worst.count;
+            const td = funnel.stages.find((s) => s.stage === 'test_drive');
+            const postTdConv = td && td.count > 0 ? deliveredCount / td.count : 0;
+            return (
+              <div className="mt-5 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900">
+                <strong className="font-bold block mb-1">🔍 CEO Funnel Takeaway:</strong>
+                The biggest single leakage in this cohort is between{' '}
+                <strong className="font-semibold">
+                  {prev.label} &rarr; {worst.label} ({lostAtWorst} leads,{' '}
+                  {formatPct(worst.dropoffFromPrevPct)})
+                </strong>
+                . Once a customer completes a test drive, conversion to delivery is{' '}
+                <strong className="font-semibold">{formatPct(postTdConv)}</strong> ({deliveredCount}/
+                {td?.count ?? 0}). The operational priority is ensuring 100% of leads receive a
+                phone call within 2 hours.
+              </div>
+            );
+          })()}
         </div>
 
         {/* Lead Source Quality & Attainment (5 cols) */}
@@ -491,9 +536,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
             </div>
           </div>
 
-          <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-600">
-            <span className="font-bold text-slate-900">Strategic Allocation:</span> Walk-in leads convert at <strong>45.7%</strong> vs Social Media at <strong>13.9%</strong>. Re-orient marketing spend towards dealer footfall and VIP drive days.
-          </div>
+          {topSource && bottomSource && (
+            <div className="mt-4 pt-3 border-t border-slate-100 text-xs text-slate-600">
+              <span className="font-bold text-slate-900">Strategic Allocation:</span>{' '}
+              <span className="capitalize">{topSource.source.replace('_', ' ')}</span> leads convert at{' '}
+              <strong>{formatPct(topSource.conversionRate)}</strong> vs{' '}
+              <span className="capitalize">{bottomSource.source.replace('_', ' ')}</span> at{' '}
+              <strong>{formatPct(bottomSource.conversionRate)}</strong>. Re-orient marketing spend
+              towards the higher-intent channels.
+            </div>
+          )}
         </div>
       </div>
     </div>

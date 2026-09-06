@@ -1,6 +1,6 @@
 import React from 'react';
 import { DealershipData } from '../types';
-import { calculateDeliveryBottlenecks } from '../lib/metrics';
+import { calculateDeliveryBottlenecks, DELAY_CATEGORY_LABEL } from '../lib/metrics';
 import { formatPct } from '../lib/data';
 import { 
   Truck, 
@@ -21,10 +21,12 @@ interface FulfilmentViewProps {
 export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
   const bottlenecks = calculateDeliveryBottlenecks(data.deliveries);
 
-  // Group reasons into actionable accountability buckets
-  const supplyChainCount = 11 + 11; // logistics transit + factory allocation
-  const internalOpsCount = 10 + 6; // accessory backlog + PDI rework
-  const externalBankCustomerCount = 18 + 9 + 7; // customer date change + finance disbursement + RTO registration
+  // Delay reasons grouped into accountability buckets (keyword-categorised in metrics.ts,
+  // so this survives label wording changes between dataset versions).
+  const { dealer, oem, customer } = bottlenecks.byCategory;
+  const internalOpsCount = dealer.count;
+  const supplyChainCount = oem.count;
+  const externalBankCustomerCount = customer.count;
 
   return (
     <div className="space-y-6">
@@ -34,8 +36,11 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
           <div>
             <h2 className="text-base font-bold text-slate-900">Fulfilment Bottlenecks & Delivery Delay Audit</h2>
             <p className="mt-1 text-xs text-slate-500 max-w-3xl">
-              Analysis of 160 delivered vehicles. <strong>88 delivered on-time (55.0%)</strong>, while <strong>72 encountered delays (45.0%)</strong>. 
-              The median fulfilment cycle from booking to handover is <strong>17.0 days</strong> (ranging from 7 to 39 days).
+              Analysis of {bottlenecks.totalDeliveries} delivered vehicles.{' '}
+              <strong>{bottlenecks.onTimeCount} delivered on-time ({formatPct(bottlenecks.onTimeRate)})</strong>, while{' '}
+              <strong>{bottlenecks.delayedCount} encountered delays ({formatPct(bottlenecks.delayedRate)})</strong>.
+              The median fulfilment cycle from booking to handover is <strong>{bottlenecks.medianDays} days</strong>{' '}
+              (up to {bottlenecks.maxDays} days at the tail).
             </p>
           </div>
 
@@ -54,7 +59,7 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
             <span className="text-xs text-slate-500 block">On-Time Deliveries</span>
             <span className="text-lg font-black text-emerald-700 block mt-1">
-              88 units (55.0%)
+              {bottlenecks.onTimeCount} units ({formatPct(bottlenecks.onTimeRate)})
             </span>
             <span className="text-[11px] text-slate-500">Zero delay logged</span>
           </div>
@@ -62,7 +67,7 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
             <span className="text-xs text-slate-500 block">Delayed Deliveries</span>
             <span className="text-lg font-black text-red-700 block mt-1">
-              72 units (45.0%)
+              {bottlenecks.delayedCount} units ({formatPct(bottlenecks.delayedRate)})
             </span>
             <span className="text-[11px] text-slate-500">Requiring root-cause action</span>
           </div>
@@ -92,11 +97,11 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
           <div className="flex items-center space-x-2 text-amber-900">
             <Wrench className="w-4 h-4 text-amber-600" />
             <h3 className="font-bold text-xs uppercase tracking-wider">
-              Dealership Operations (16 delays)
+              Dealership Operations ({internalOpsCount} delays)
             </h3>
           </div>
           <p className="mt-2 text-xs text-slate-600">
-            <strong>10 Accessory Backlog + 6 PDI Rework</strong>. These 16 delays are 100% under dealer management control.
+            <strong>{dealer.reasons.join(' + ') || 'None in this period'}</strong>. These {internalOpsCount} delays are 100% under dealer management control.
           </p>
           <div className="mt-3 p-2 bg-amber-50 rounded-md text-[11px] text-amber-900 font-medium">
             <strong>Action:</strong> Pre-stage accessories 48h prior to vehicle arrival and enforce pre-PDI quality checks.
@@ -108,11 +113,11 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
           <div className="flex items-center space-x-2 text-blue-900">
             <Truck className="w-4 h-4 text-blue-600" />
             <h3 className="font-bold text-xs uppercase tracking-wider">
-              OEM & Supply Chain (22 delays)
+              OEM & Supply Chain ({supplyChainCount} delays)
             </h3>
           </div>
           <p className="mt-2 text-xs text-slate-600">
-            <strong>11 Logistics Transit + 11 Factory Allocation</strong>. Caused by regional plant dispatch and trailer transit delays.
+            <strong>{oem.reasons.join(' + ') || 'None in this period'}</strong>. Caused by regional plant dispatch and trailer transit delays.
           </p>
           <div className="mt-3 p-2 bg-blue-50 rounded-md text-[11px] text-blue-900 font-medium">
             <strong>Action:</strong> Escalate trailer scheduling with Toyota regional logistics and align factory allocation quotas.
@@ -124,11 +129,11 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
           <div className="flex items-center space-x-2 text-slate-900">
             <Calendar className="w-4 h-4 text-slate-600" />
             <h3 className="font-bold text-xs uppercase tracking-wider">
-              Customer & Compliance (34 delays)
+              Customer & Compliance ({externalBankCustomerCount} delays)
             </h3>
           </div>
           <p className="mt-2 text-xs text-slate-600">
-            <strong>18 Customer Date Change + 9 Finance + 7 RTO</strong>. Auspicious day postponements and bank loan disbursement lags.
+            <strong>{customer.reasons.join(' + ') || 'None in this period'}</strong>. Auspicious day postponements and bank loan disbursement lags.
           </p>
           <div className="mt-3 p-2 bg-slate-100 rounded-md text-[11px] text-slate-800 font-medium">
             <strong>Action:</strong> Implement digital pre-sanction checks with captive financiers 5 days before vehicle delivery.
@@ -141,10 +146,10 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
         <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-bold text-slate-900">Delivery Delay Reason Breakdown</h3>
-            <p className="text-xs text-slate-500">Distribution across all 72 delayed deliveries</p>
+            <p className="text-xs text-slate-500">Distribution across all {bottlenecks.delayedCount} delayed deliveries</p>
           </div>
           <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md">
-            7 Primary Reasons
+            {bottlenecks.reasons.length} Primary Reasons
           </span>
         </div>
 
@@ -162,21 +167,11 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {bottlenecks.reasons.map((r) => {
-                let category = 'Customer / Bank';
-                let playbook = 'Confirm handover date at booking';
-                if (r.reason === 'accessory backlog' || r.reason === 'PDI rework') {
-                  category = 'Dealer Operational';
-                  playbook = 'Audit accessory stock and workshop pre-delivery bay';
-                } else if (r.reason === 'factory allocation' || r.reason === 'logistics transit') {
-                  category = 'OEM / Logistics';
-                  playbook = 'Weekly stock allocation review with Toyota Regional Manager';
-                } else if (r.reason === 'finance disbursement') {
-                  category = 'Banking Partner';
-                  playbook = 'Escalate with in-house Toyota Financial Services desk';
-                } else if (r.reason === 'RTO registration') {
-                  category = 'Statutory';
-                  playbook = 'Submit online Vahan documents 48h earlier';
-                }
+                const playbook: Record<string, string> = {
+                  dealer: 'Audit accessory stock and workshop pre-delivery bay',
+                  oem: 'Weekly stock allocation review with Toyota Regional Manager',
+                  customer: 'Confirm handover date and pre-sanction finance at booking',
+                };
 
                 return (
                   <tr key={r.reason} className="hover:bg-slate-50/80 transition-colors">
@@ -198,18 +193,18 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
 
                     <td className="py-3 px-4">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                        category === 'Dealer Operational'
+                        r.category === 'dealer'
                           ? 'bg-amber-100 text-amber-800'
-                          : category === 'OEM / Logistics'
+                          : r.category === 'oem'
                           ? 'bg-blue-100 text-blue-800'
                           : 'bg-slate-100 text-slate-700'
                       }`}>
-                        {category}
+                        {DELAY_CATEGORY_LABEL[r.category]}
                       </span>
                     </td>
 
                     <td className="py-3 px-4 text-slate-600 text-[11px]">
-                      {playbook}
+                      {playbook[r.category]}
                     </td>
                   </tr>
                 );

@@ -86,13 +86,10 @@ export type DealershipData = {
 
 export type FilterState = {
   selectedBranchId: string | 'all';
-  selectedRepId: string | 'all';
   selectedSource: string | 'all';
-  selectedModel: string | 'all';
-  dateRange: {
-    start: string | null;
-    end: string | null;
-  };
+  /** inclusive month keys ('2025-06' .. '2025-12'); null = unbounded */
+  periodStart: string | null;
+  periodEnd: string | null;
 };
 
 export type BranchMetrics = {

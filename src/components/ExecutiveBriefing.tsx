@@ -2,6 +2,8 @@ import React from 'react';
 import { DealershipData } from '../types';
 import { calculateBranchMetrics, calculatePipelineHealth, calculateFunnelMetrics } from '../lib/metrics';
 import { formatINR, formatPct } from '../lib/data';
+import { isFullPeriod, periodLabel } from '../lib/period';
+import { useDashboardStore } from '../store/useDashboardStore';
 import { 
   Printer, 
   AlertTriangle, 
@@ -22,6 +24,10 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({ data }) =>
   const branchMetrics = calculateBranchMetrics(data);
   const funnel = calculateFunnelMetrics(data.leads);
   const health = calculatePipelineHealth(data.leads);
+
+  const { periodStart, periodEnd } = useDashboardStore();
+  const period = { start: periodStart, end: periodEnd };
+  const fullYear = isFullPeriod(period);
 
   const handlePrint = () => {
     window.print();
@@ -44,6 +50,14 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({ data }) =>
           <span>Print / Export PDF</span>
         </button>
       </div>
+
+      {!fullYear && (
+        <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
+          <strong>Note:</strong> the time filter is set to <strong>{periodLabel(period)}</strong>. The
+          league table below reflects that cohort, but the written directives are anchored to the
+          full-year (Jun–Dec 2025) analysis. Reset the period filter for the canonical briefing.
+        </div>
+      )}
 
       {/* Printable Briefing Document Container */}
       <div className="bg-white border border-slate-200 rounded-xl p-8 shadow-xs space-y-8 print:border-none print:shadow-none print:p-0">

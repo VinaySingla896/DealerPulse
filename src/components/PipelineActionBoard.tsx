@@ -107,7 +107,7 @@ export const PipelineActionBoard: React.FC<PipelineActionBoardProps> = ({ data }
             </div>
             <p className="mt-1 text-xs text-slate-500 max-w-3xl">
               <strong>{health.combinedIdleCount} deals</strong> worth <strong>{formatINR(health.combinedIdleValue)}</strong> have had zero recorded rep or fulfilment activity for &ge;7 days. 
-              The majority (<strong className="text-slate-900 font-bold">{formatINR(health.orderPlacedStaleValue)}</strong> across 33 deals) is a <strong>fulfilment delay bottleneck</strong>, while <strong>{formatINR(health.preOrderStaleValue)}</strong> represents neglected sales inquiries.
+              The majority (<strong className="text-slate-900 font-bold">{formatINR(health.orderPlacedStaleValue)}</strong> across {health.orderPlacedStaleCount} deals) is a <strong>fulfilment delay bottleneck</strong>, while <strong>{formatINR(health.preOrderStaleValue)}</strong> across {health.preOrderStaleCount} leads represents neglected sales inquiries.
             </p>
           </div>
 
@@ -205,10 +205,10 @@ export const PipelineActionBoard: React.FC<PipelineActionBoardProps> = ({ data }
           <Truck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold text-sm block text-blue-950">
-              Fulfilment Bottleneck: 33 booked orders idle &ge;7 days ({formatINR(health.orderPlacedStaleValue)})
+              Fulfilment Bottleneck: {health.orderPlacedStaleCount} booked orders idle &ge;7 days ({formatINR(health.orderPlacedStaleValue)})
             </span>
             <p className="mt-1 leading-relaxed">
-              <strong>27 of these 33 bookings have been waiting &ge;17 days</strong> ({formatINR(health.orderPlacedAged17Value)}), exceeding the group median delivery cycle. 
+              <strong>{health.orderPlacedAged17Count} of these {health.orderPlacedStaleCount} bookings have been waiting &ge;17 days</strong> ({formatINR(health.orderPlacedAged17Value)}), exceeding the group median delivery cycle.
               These customers have paid deposits and are in danger of cancellation due to factory allocation, logistics transit, and accessory delays.
             </p>
           </div>
@@ -220,10 +220,10 @@ export const PipelineActionBoard: React.FC<PipelineActionBoardProps> = ({ data }
           <ShieldAlert className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold text-sm block text-red-950">
-              Trap 6 CRM Integrity Alert: 20 Phantom "Dissatisfied with test drive" Dispositions
+              Trap 6 CRM Integrity Alert: {trap6Leads.length} Phantom "Dissatisfied with test drive" Dispositions
             </span>
             <p className="mt-1 leading-relaxed">
-              These 20 leads were categorized by sales reps as <em>"Dissatisfied with test drive"</em>, yet their audit trail in <code>status_history</code> confirms they <strong>never had a test drive</strong>. 
+              These {trap6Leads.length} leads were categorized by sales reps as <em>"Dissatisfied with test drive"</em>, yet their audit trail in <code>status_history</code> confirms they <strong>never had a test drive</strong>.
               Reps selected this reason as a lazy catch-all dropdown to close unresponsive leads. Action: Enforce mandatory CRM intake validation.
             </p>
           </div>
@@ -235,10 +235,10 @@ export const PipelineActionBoard: React.FC<PipelineActionBoardProps> = ({ data }
           <ShieldAlert className="w-5 h-5 text-purple-600 shrink-0 mt-0.5" />
           <div>
             <span className="font-bold text-sm block text-purple-950">
-              Trap 4 CRM Completeness Alert: 14 Lost Leads with Null Lost Reason
+              Trap 4 CRM Completeness Alert: {trap4Leads.length} Lost Leads with Null Lost Reason
             </span>
             <p className="mt-1 leading-relaxed">
-              These 14 leads were closed as lost without recording any reason in the CRM. They are safely displayed here as <em>"Reason not recorded"</em> to prevent UI crashes. Action: Audit rep intake discipline at branch level.
+              These {trap4Leads.length} leads were closed as lost without recording any reason in the CRM.They are safely displayed here as <em>"Reason not recorded"</em> to prevent UI crashes. Action: Audit rep intake discipline at branch level.
             </p>
           </div>
         </div>

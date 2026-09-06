@@ -11,6 +11,7 @@ import {
   calculateDeliveryBottlenecks,
 } from '../lib/metrics';
 import { DATA_AS_OF } from '../lib/data';
+import { scopeDataToPeriod, monthsInRange, FULL_PERIOD } from '../lib/period';
 
 describe('DealerPulse Core Metrics Ground-Truth Verification', () => {
   let data: DealershipData;
@@ -39,7 +40,7 @@ describe('DealerPulse Core Metrics Ground-Truth Verification', () => {
     expect(reachMap.delivered).toBe(160);
 
     expect(funnel.neverContactedCount).toBe(119);
-    expect(funnel.deliveredRevenue).toBe(388800000);
+    expect(funnel.deliveredRevenue).toBe(388760000);
   });
 
   it('verifies current status counts (§4)', () => {
@@ -122,20 +123,20 @@ describe('DealerPulse Core Metrics Ground-Truth Verification', () => {
     const pipeline = calculatePipelineHealth(data.leads, DATA_AS_OF);
 
     expect(pipeline.totalOpenLeads).toBe(62);
-    expect(pipeline.totalOpenValue).toBe(151500000);
+    expect(pipeline.totalOpenValue).toBe(151540000);
 
     expect(pipeline.preOrderCount).toBe(24);
     expect(pipeline.preOrderStaleCount).toBe(6);
-    expect(pipeline.preOrderStaleValue).toBe(14800000);
+    expect(pipeline.preOrderStaleValue).toBe(14830000);
 
     expect(pipeline.orderPlacedCount).toBe(38);
     expect(pipeline.orderPlacedStaleCount).toBe(33);
-    expect(pipeline.orderPlacedStaleValue).toBe(76800000);
+    expect(pipeline.orderPlacedStaleValue).toBe(76780000);
     expect(pipeline.orderPlacedAged17Count).toBe(27);
-    expect(pipeline.orderPlacedAged17Value).toBe(62800000);
+    expect(pipeline.orderPlacedAged17Value).toBe(62780000);
 
     expect(pipeline.combinedIdleCount).toBe(39);
-    expect(pipeline.combinedIdleValue).toBe(91600000);
+    expect(pipeline.combinedIdleValue).toBe(91610000);
   });
 
   it('verifies delivery bottlenecks and delay reasons (§5)', () => {
@@ -146,13 +147,52 @@ describe('DealerPulse Core Metrics Ground-Truth Verification', () => {
     expect(bottlenecks.delayedCount).toBe(72);
 
     const reasonsMap = Object.fromEntries(bottlenecks.reasons.map((r) => [r.reason, r.count]));
-    expect(reasonsMap['customer date change']).toBe(18);
-    expect(reasonsMap['logistics transit']).toBe(11);
-    expect(reasonsMap['factory allocation']).toBe(11);
-    expect(reasonsMap['accessory backlog']).toBe(10);
-    expect(reasonsMap['finance disbursement']).toBe(9);
-    expect(reasonsMap['RTO registration']).toBe(7);
-    expect(reasonsMap['PDI rework']).toBe(6);
+    expect(reasonsMap['Customer requested date change']).toBe(18);
+    expect(reasonsMap['Logistics delay in transit']).toBe(11);
+    expect(reasonsMap['Vehicle allocation delayed from factory']).toBe(11);
+    expect(reasonsMap['Accessory fitment backlog']).toBe(10);
+    expect(reasonsMap['Finance disbursement pending']).toBe(9);
+    expect(reasonsMap['RTO registration delay']).toBe(7);
+    expect(reasonsMap['PDI rework required']).toBe(6);
+
+    // Keyword-based accountability buckets (resilient to reason wording)
+    expect(bottlenecks.byCategory.dealer.count).toBe(16); // accessory fitment + PDI rework
+    expect(bottlenecks.byCategory.oem.count).toBe(22); // logistics transit + factory allocation
+    expect(bottlenecks.byCategory.customer.count).toBe(34); // date change + finance + RTO
+  });
+
+  it('scopes data to a month-range cohort (time-period filter)', () => {
+    // Full period is a no-op
+    expect(scopeDataToPeriod(data, FULL_PERIOD)).toBe(data);
+    expect(monthsInRange({ start: '2025-08', end: '2025-10' })).toEqual([
+      '2025-08',
+      '2025-09',
+      '2025-10',
+    ]);
+
+    // Single month: leads created that month only
+    const june = scopeDataToPeriod(data, { start: '2025-06', end: '2025-06' });
+    expect(june.leads.length).toBe(55);
+    expect(june.leads.every((l) => l.created_at.slice(0, 7) === '2025-06')).toBe(true);
+    // Deliveries are restricted to the surviving cohort
+    const juneLeadIds = new Set(june.leads.map((l) => l.id));
+    expect(june.deliveries.every((d) => juneLeadIds.has(d.lead_id))).toBe(true);
+    // Targets restricted to the month (5 branches x 1 month)
+    expect(june.targets.length).toBe(5);
+
+    // A range partitions the leads exactly
+    const q3 = scopeDataToPeriod(data, { start: '2025-06', end: '2025-09' });
+    const q4 = scopeDataToPeriod(data, { start: '2025-10', end: '2025-12' });
+    expect(q3.leads.length + q4.leads.length).toBe(data.leads.length);
+    expect(q3.targets.length).toBe(20);
+
+    // Branch metrics recompute on the cohort
+    const q3Branches = calculateBranchMetrics(q3);
+    const allBranches = calculateBranchMetrics(data);
+    expect(q3Branches.reduce((s, b) => s + b.totalLeads, 0)).toBe(q3.leads.length);
+    expect(q3Branches[0].targetUnits).toBeLessThan(
+      allBranches.find((b) => b.branchId === q3Branches[0].branchId)!.targetUnits
+    );
   });
 
   it('verifies status_history event counts and Trap 4 / 6', () => {

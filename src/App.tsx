@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { DealershipData } from './types';
 import { loadDealershipData } from './lib/data';
+import { scopeDataToPeriod } from './lib/period';
 import { useDashboardStore } from './store/useDashboardStore';
 import { Header } from './components/Header';
 import { OverviewView } from './components/OverviewView';
@@ -11,12 +12,30 @@ import { DecemberSimulator } from './components/DecemberSimulator';
 import { ExecutiveBriefing } from './components/ExecutiveBriefing';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
+const EmptyPeriod: React.FC = () => (
+  <div className="bg-white border border-slate-200 rounded-xl p-10 text-center shadow-xs">
+    <AlertCircle className="w-7 h-7 text-slate-400 mx-auto" />
+    <h2 className="mt-3 text-sm font-bold text-slate-900">No leads in this period</h2>
+    <p className="mt-1 text-xs text-slate-500">
+      No leads were created in the selected month range. Widen the time filter to see data.
+    </p>
+  </div>
+);
+
 export const App: React.FC = () => {
   const [data, setData] = useState<DealershipData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { currentView } = useDashboardStore();
+  const { currentView, periodStart, periodEnd } = useDashboardStore();
+
+  // All views render from period-scoped data. Branch / source filters are still
+  // applied inside each view (some views deliberately show every branch).
+  const scopedData = useMemo(
+    () =>
+      data ? scopeDataToPeriod(data, { start: periodStart, end: periodEnd }) : null,
+    [data, periodStart, periodEnd]
+  );
 
   useEffect(() => {
     async function fetchData() {
@@ -49,7 +68,7 @@ export const App: React.FC = () => {
     );
   }
 
-  if (error || !data) {
+  if (error || !data || !scopedData) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
         <div className="bg-white border border-red-200 rounded-xl p-8 max-w-md w-full text-center shadow-xs">
@@ -74,12 +93,19 @@ export const App: React.FC = () => {
       <Header branches={data.branches} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {currentView === 'overview' && <OverviewView data={data} />}
-        {currentView === 'pipeline' && <PipelineActionBoard data={data} />}
-        {currentView === 'reps' && <RepLeagueView data={data} />}
-        {currentView === 'fulfilment' && <FulfilmentView data={data} />}
-        {currentView === 'simulator' && <DecemberSimulator data={data} />}
-        {currentView === 'briefing' && <ExecutiveBriefing data={data} />}
+        {scopedData.leads.length === 0 ? (
+          <EmptyPeriod />
+        ) : (
+          <>
+            {currentView === 'overview' && <OverviewView data={scopedData} />}
+            {currentView === 'pipeline' && <PipelineActionBoard data={scopedData} />}
+            {currentView === 'reps' && <RepLeagueView data={scopedData} />}
+            {currentView === 'fulfilment' && <FulfilmentView data={scopedData} />}
+            {/* The replay is inherently a December walk-through — always full data. */}
+            {currentView === 'simulator' && <DecemberSimulator data={data} />}
+            {currentView === 'briefing' && <ExecutiveBriefing data={scopedData} />}
+          </>
+        )}
       </main>
 
       <footer className="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">

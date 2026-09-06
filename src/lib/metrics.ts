@@ -100,9 +100,14 @@ export function calculateFunnelMetrics(leads: Lead[]): FunnelSummary {
 }
 
 /**
- * Calculate branch metrics
+ * Calculate branch metrics.
+ *
+ * Targets are summed across every month present in `data.targets`, so the caller
+ * controls the horizon by passing period-scoped data (see scopeDataToPeriod).
+ * With the full dataset this is all 7 monthly targets; with a month-range filter
+ * applied it is just the targets for the selected months.
  */
-export function calculateBranchMetrics(data: DealershipData, targetMonth: string = '2025-12'): BranchMetrics[] {
+export function calculateBranchMetrics(data: DealershipData): BranchMetrics[] {
   const deliveryMap = new Map<string, Delivery>();
   data.deliveries.forEach((d) => deliveryMap.set(d.lead_id, d));
 
@@ -125,12 +130,10 @@ export function calculateBranchMetrics(data: DealershipData, targetMonth: string
       (l) => !l.status_history.some((h) => h.status === 'contacted')
     ).length;
 
-    // Target for specified month
-    const target = data.targets.find(
-      (t) => t.branch_id === branch.id && t.month === targetMonth
-    );
-    const targetUnits = target ? target.target_units : 0;
-    const targetRevenue = target ? target.target_revenue : 0;
+    // Targets summed across whatever months are present in `data.targets`
+    const branchTargets = data.targets.filter((t) => t.branch_id === branch.id);
+    const targetUnits = branchTargets.reduce((sum, t) => sum + t.target_units, 0);
+    const targetRevenue = branchTargets.reduce((sum, t) => sum + t.target_revenue, 0);
 
     // Delivery duration metrics
     const bDeliveries = deliveredLeads
@@ -313,6 +316,26 @@ export function calculatePipelineHealth(leads: Lead[], asOfDate: Date = DATA_AS_
   };
 }
 
+export type DelayCategory = 'dealer' | 'oem' | 'customer';
+
+/**
+ * Map a free-text delay reason to an accountability bucket by keyword, so the
+ * categorisation survives wording changes between dataset versions
+ * (e.g. "accessory backlog" vs "Accessory fitment backlog").
+ */
+export function categoriseDelayReason(reason: string): DelayCategory {
+  const r = reason.toLowerCase();
+  if (/accessor|pdi|fitment|workshop/.test(r)) return 'dealer';
+  if (/logistic|transit|factory|allocation|dispatch|plant/.test(r)) return 'oem';
+  return 'customer'; // date change, finance/disbursement, RTO/registration, everything else external
+}
+
+export const DELAY_CATEGORY_LABEL: Record<DelayCategory, string> = {
+  dealer: 'Dealership Operations',
+  oem: 'OEM & Supply Chain',
+  customer: 'Customer & Compliance',
+};
+
 /**
  * Delivery bottlenecks and delay reasons
  */
@@ -334,10 +357,21 @@ export function calculateDeliveryBottlenecks(deliveries: Delivery[]) {
     .map(([reason, count]) => ({
       reason,
       count,
+      category: categoriseDelayReason(reason),
       pctOfDelayed: delayedCount > 0 ? count / delayedCount : 0,
       pctOfTotal: deliveries.length > 0 ? count / deliveries.length : 0,
     }))
     .sort((a, b) => b.count - a.count);
+
+  const byCategory: Record<DelayCategory, { count: number; reasons: string[] }> = {
+    dealer: { count: 0, reasons: [] },
+    oem: { count: 0, reasons: [] },
+    customer: { count: 0, reasons: [] },
+  };
+  sortedReasons.forEach((r) => {
+    byCategory[r.category].count += r.count;
+    byCategory[r.category].reasons.push(`${r.count} ${r.reason}`);
+  });
 
   const daysList = deliveries.map((d) => d.days_to_deliver).sort((a, b) => a - b);
   const medianDays = daysList.length > 0 ? daysList[Math.floor(daysList.length / 2)] : 0;
@@ -351,6 +385,7 @@ export function calculateDeliveryBottlenecks(deliveries: Delivery[]) {
     onTimeRate: deliveries.length > 0 ? onTimeCount / deliveries.length : 0,
     delayedRate: deliveries.length > 0 ? delayedCount / deliveries.length : 0,
     reasons: sortedReasons,
+    byCategory,
     medianDays,
     maxDays,
     p90Days,

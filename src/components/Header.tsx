@@ -1,6 +1,6 @@
 import React from 'react';
 import { useDashboardStore, DashboardView } from '../store/useDashboardStore';
-import { DATA_AS_OF_STRING } from '../lib/data';
+import { ALL_MONTHS, MONTH_LABELS, periodLabel } from '../lib/period';
 import { Branch } from '../types';
 import { 
   Building2, 
@@ -9,10 +9,11 @@ import {
   TrendingUp, 
   Users, 
   Truck, 
-  PlayCircle, 
-  FileText, 
+  PlayCircle,
+  FileText,
   RefreshCw,
-  SlidersHorizontal
+  SlidersHorizontal,
+  Calendar
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -27,8 +28,20 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
     setSelectedBranchId,
     selectedSource,
     setSelectedSource,
+    periodStart,
+    periodEnd,
+    setPeriodStart,
+    setPeriodEnd,
     resetFilters,
   } = useDashboardStore();
+
+  const firstMonth = ALL_MONTHS[0];
+  const lastMonth = ALL_MONTHS[ALL_MONTHS.length - 1];
+  const filtersActive =
+    selectedBranchId !== 'all' ||
+    selectedSource !== 'all' ||
+    periodStart !== null ||
+    periodEnd !== null;
 
   const navItems: { id: DashboardView; label: string; icon: React.ReactNode; badge?: string; badgeColor?: string }[] = [
     { id: 'overview', label: 'Overview', icon: <TrendingUp className="w-4 h-4" /> },
@@ -99,6 +112,14 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
               <span>As of: 31 Dec 2025, 19:10 UTC</span>
             </div>
 
+            <div
+              className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 border border-indigo-200 text-indigo-700"
+              title="Active time-period scope"
+            >
+              <Calendar className="w-3.5 h-3.5 mr-1.5" />
+              <span>{periodLabel({ start: periodStart, end: periodEnd })}</span>
+            </div>
+
             {/* Quick Audit Triggers */}
             <button
               id="btn-quick-lakeside"
@@ -161,10 +182,46 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
           </nav>
 
           {/* Global Filter Controls */}
-          <div className="flex items-center space-x-2 text-xs">
+          <div className="flex flex-wrap items-center gap-2 text-xs">
             <div className="flex items-center text-slate-500 font-medium mr-1">
               <SlidersHorizontal className="w-3.5 h-3.5 mr-1" />
               <span className="hidden sm:inline">Filters:</span>
+            </div>
+
+            {/* Time-period (month range) Selector */}
+            <div className="flex items-center gap-1" title="Slice all views to a range of monthly lead cohorts">
+              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+              <select
+                id="filter-period-start"
+                aria-label="Period start month"
+                value={periodStart ?? firstMonth}
+                onChange={(e) =>
+                  setPeriodStart(e.target.value === firstMonth ? null : e.target.value)
+                }
+                className="bg-white border border-slate-300 text-slate-800 text-xs rounded-md px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-slate-900 font-medium"
+              >
+                {ALL_MONTHS.map((m) => (
+                  <option key={m} value={m}>
+                    {MONTH_LABELS[m]}
+                  </option>
+                ))}
+              </select>
+              <span className="text-slate-400">→</span>
+              <select
+                id="filter-period-end"
+                aria-label="Period end month"
+                value={periodEnd ?? lastMonth}
+                onChange={(e) =>
+                  setPeriodEnd(e.target.value === lastMonth ? null : e.target.value)
+                }
+                className="bg-white border border-slate-300 text-slate-800 text-xs rounded-md px-2 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-slate-900 font-medium"
+              >
+                {ALL_MONTHS.map((m) => (
+                  <option key={m} value={m}>
+                    {MONTH_LABELS[m]}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Branch Selector */}
@@ -198,12 +255,12 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
               <option value="social_media">Social Media (13.9% conv)</option>
             </select>
 
-            {(selectedBranchId !== 'all' || selectedSource !== 'all') && (
+            {filtersActive && (
               <button
                 id="btn-reset-filters"
                 onClick={resetFilters}
                 className="p-1.5 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors"
-                title="Reset filters"
+                title="Reset all filters"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
               </button>
