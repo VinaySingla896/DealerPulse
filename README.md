@@ -1,61 +1,129 @@
 # DealerPulse
 
-Executive performance dashboard for a 5-branch automotive dealership group. It turns
-seven months of raw lead, delivery, and target data into the vital signs a CEO and
-branch managers need at a glance — and surfaces the specific actions that move them.
+An executive performance dashboard for a five-branch automotive dealership group. It
+takes seven months of raw lead, delivery, and target data and turns it into the vital
+signs a CEO and branch managers need at a glance — plus the specific actions worth
+taking this week.
 
-## Highlights
+Built as a take-home assignment. See **[DECISIONS.md](DECISIONS.md)** for the
+reasoning behind what's here.
 
-- **Overview** — group vital signs (delivered revenue, conversion, stalled pipeline,
-  never-contacted leak, fulfilment delay), a data-derived crisis banner, the branch
-  league table, the full sales funnel with stage-by-stage leak, lead-source ROI, and
-  monthly-momentum / conversion-by-branch charts.
-- **Pipeline & Actions** — every lead idle ≥ 7 days, split into fulfilment vs. sales
-  follow-up, plus two CRM data-integrity audits, each row with a one-click action.
-- **Rep League** — per-rep conversion indexed to the branch mean, statistical-outlier
-  flagging (z-score), and drill-down: click a rep to see their leads, click a lead to
-  see its full status-history journey.
-- **Targets & Forecast** — target attainment plus a stage-weighted pipeline projection
-  per branch, graded relative to the group's own pace, with the lead-supply gap
-  (leads received vs. leads needed to hit target at the current close rate).
-- **Fulfilment & Delays** — 45% of deliveries run late; this breaks the 72 delayed
-  deliveries into OEM / dealer-operations / customer-compliance buckets with playbooks.
-- **Dec Replay** — scrub through December's status transitions day by day.
-- **CEO Briefing** — a print-ready board summary; every figure and directive is
-  computed from the data.
+---
 
-Every view can be sliced by **month range**, **branch**, and **lead source**. All
-headline numbers are derived from the dataset, so filtered views stay consistent and
-the app works unchanged on a different dataset.
+## Quick start
 
-## Tech
-
-React 19 · TypeScript · Vite 6 · Tailwind CSS 4 · Zustand · Recharts · Vitest.
-Data is a static JSON file processed entirely client-side — no backend, no auth.
-
-## Run locally
-
-**Prerequisites:** Node.js 20.19+ or 22.12+
+**You need [Node.js](https://nodejs.org) 20.19+ or 22.12+.** Check with `node -v`.
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+npm run dev
 ```
 
-```bash
-npm run build      # production build to dist/
-npm run preview     # serve the build
-npm run lint        # tsc --noEmit
-npm test            # vitest (metrics ground-truth + forecast + period filtering)
+Open **http://localhost:3000**. That's it — no environment variables, no database, no
+backend to start.
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Dev server with hot reload at `localhost:3000` |
+| `npm run build` | Production build into `dist/` |
+| `npm run preview` | Serve the production build locally |
+| `npm run lint` | Type-check with `tsc --noEmit` |
+| `npm test` | Run the unit tests (`vitest`) |
+
+---
+
+## What's in it
+
+Seven views, each sliceable by **month range**, **branch**, and **lead source** (top
+of the page):
+
+| View | What it answers |
+| --- | --- |
+| **Overview** | How's the business? Revenue, conversion, stalled pipeline, the never-contacted leak, fulfilment delays — plus the sales funnel, lead-source ROI, and trend charts. |
+| **Pipeline & Actions** | Which deals are going cold? Every lead idle ≥ 7 days, split into "waiting on a car" vs "sales dropped the ball," each with a one-click action. Plus two CRM data-quality audits. |
+| **Rep League** | How do reps stack up? Conversion indexed to the branch mean, automatic statistical-outlier flagging. Click a rep → their leads. Click a lead → its full journey. |
+| **Targets & Forecast** | Will branches hit target? Attainment plus a stage-weighted forecast of the open pipeline, and the lead-supply gap. |
+| **Fulfilment & Delays** | Why are deliveries late? The 45% that run late, bucketed by who's accountable (dealer / OEM / customer) with a playbook each. |
+| **Dec Replay** | Step through December's activity day by day and watch the month-end delivery rush build. |
+| **CEO Briefing** | A print-ready board summary. Every number and directive is computed from the data. |
+
+Every headline figure is **derived from the dataset** — swap the data file and the
+whole dashboard, including the written briefing, updates itself.
+
+---
+
+## How it works
+
+```
+public/data/dealership_data.json   ← the only data source
+        │  fetched once on load, cached in memory
+        ▼
+src/lib/data.ts        loading + Indian-currency / percent formatting
+src/lib/metrics.ts     all the analytics — pure functions over plain arrays
+src/lib/period.ts      the month-range ("time period") filter
+        │
+        ▼
+src/store/useDashboardStore.ts   current view + active filters (Zustand)
+        │
+        ▼
+src/components/*.tsx    one file per view, + charts.tsx (Recharts)
+src/App.tsx            scopes the data to the active period, routes to the view
 ```
 
-## Data
+There is **no server**. The JSON is served as a static file, parsed in the browser,
+and every metric is calculated client-side. This keeps deployment free and
+zero-config; [DECISIONS.md](DECISIONS.md#no-backend) explains the trade and what a
+production version would change.
 
-`public/data/dealership_data.json` — 5 branches, 30 reps, 510 leads with full status
-histories, 160 deliveries, and 35 monthly branch targets (Jun–Dec 2025). Metrics are
-computed in [`src/lib/metrics.ts`](src/lib/metrics.ts); the month-range filter lives in
-[`src/lib/period.ts`](src/lib/period.ts).
+### The dataset
+
+`public/data/dealership_data.json` — synthetic data for June–December 2025:
+
+- **5 branches** (Chennai ×2, Bangalore, Hyderabad, Mumbai)
+- **30 sales reps** — 5 branch managers + 25 sales officers
+- **510 leads**, each with a full `status_history` (new → contacted → test drive →
+  negotiation → order placed → delivered / lost) so any lead's journey can be
+  reconstructed
+- **160 deliveries** with timelines and delay reasons
+- **35 monthly branch targets** (units + revenue)
+
+The dashboard treats **31 Dec 2025, 19:10 UTC** as "now" (set in
+[`src/lib/data.ts`](src/lib/data.ts)) — that's what "idle days" and the aging alerts
+are measured against.
+
+### Swapping the data
+
+Drop a file with the same shape at `public/data/dealership_data.json` and reload.
+Nothing else needs to change — branch names, the crisis branch, the outlier rep, the
+briefing prose, and the charts all recompute. The unit tests in
+[`src/__tests__/metrics.test.ts`](src/__tests__/metrics.test.ts) assert the current
+dataset's ground-truth numbers, so update those if you change the data.
+
+---
+
+## Tech
+
+- **React 19** + **TypeScript**, **Vite 6** for the build
+- **Tailwind CSS 4** for styling
+- **Zustand** for view/filter state
+- **Recharts** for the three trend/comparison charts (lazy-loaded into its own chunk)
+- **Vitest** — 13 tests covering the metrics layer (funnel, branch/rep metrics,
+  pipeline health, delivery bottlenecks, the forecast, and the period filter)
+
+No backend, no auth, no environment variables.
+
+---
+
+## Responsive
+
+Desktop and tablet are fully supported. On phones the navigation collapses into a
+floating menu button, dense tables drop their lower-priority columns, and no view
+scrolls the page sideways down to 320px wide.
+
+---
 
 ## Deploy
 
-Zero-config on Vercel — it detects Vite, runs `npm run build`, and serves `dist/`.
+Zero-config on **Vercel** — it auto-detects Vite, runs `npm run build`, and serves
+`dist/` as a static site. Push the repo, import it, done. Any static host works the
+same way (`npm run build` → serve `dist/`).
