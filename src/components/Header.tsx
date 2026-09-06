@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useDashboardStore, DashboardView } from '../store/useDashboardStore';
 import { ALL_MONTHS, MONTH_LABELS, periodLabel } from '../lib/period';
 import {
@@ -23,7 +23,9 @@ import {
   RefreshCw,
   SlidersHorizontal,
   Calendar,
-  Target
+  Target,
+  Menu,
+  X
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -48,6 +50,8 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
     setPeriodEnd,
     resetFilters,
   } = useDashboardStore();
+
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const firstMonth = ALL_MONTHS[0];
   const lastMonth = ALL_MONTHS[ALL_MONTHS.length - 1];
@@ -119,7 +123,15 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
     },
   ];
 
+  const goTo = (id: DashboardView) => {
+    setCurrentView(id);
+    setMobileNavOpen(false);
+  };
+
+  const activeItem = navItems.find((i) => i.id === currentView);
+
   return (
+    <>
     <header className="bg-white border-b border-slate-200 relative md:sticky md:top-0 z-40 shadow-xs">
       {/* Top Banner: Brand, Context, and Emergency Fast Triggers */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -191,8 +203,8 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
 
         {/* Navigation Tabs and Global Filter Bar */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between py-2 gap-3">
-          {/* Main Navigation — vertical stack on phones, single scrolling row from md up (keeps the sticky header short) */}
-          <nav className="flex flex-col md:flex-row md:items-center gap-1 md:overflow-x-auto md:pb-0 pb-1 scrollbar-none">
+          {/* Main Navigation — hidden on phones (use the floating menu button), single scrolling row from md up */}
+          <nav className="hidden md:flex md:flex-row md:items-center gap-1 md:overflow-x-auto pb-0 scrollbar-none">
             {navItems.map((item) => {
               const active = currentView === item.id;
               return (
@@ -200,7 +212,7 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
                   key={item.id}
                   id={`nav-${item.id}`}
                   onClick={() => setCurrentView(item.id)}
-                  className={`inline-flex items-center w-full md:w-auto px-3 py-2 md:py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
+                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-sm font-medium transition-all whitespace-nowrap ${
                     active
                       ? 'bg-slate-900 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
@@ -210,7 +222,7 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
                   <span>{item.label}</span>
                   {item.badge && (
                     <span
-                      className={`ml-auto md:ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                      className={`ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                         active ? 'bg-white/20 text-white' : item.badgeColor
                       }`}
                     >
@@ -310,5 +322,59 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
         </div>
       </div>
     </header>
+
+    {/* Floating navigation menu — phones only */}
+    <button
+      type="button"
+      aria-label={mobileNavOpen ? 'Close navigation menu' : 'Open navigation menu'}
+      aria-expanded={mobileNavOpen}
+      onClick={() => setMobileNavOpen((v) => !v)}
+      className="md:hidden fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-slate-900 text-white pl-3 pr-4 py-3 shadow-lg shadow-slate-900/25 active:scale-95 transition-transform"
+    >
+      {mobileNavOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+      <span className="text-sm font-semibold">{mobileNavOpen ? 'Close' : activeItem?.label ?? 'Menu'}</span>
+    </button>
+
+    {mobileNavOpen && (
+      <div className="md:hidden fixed inset-0 z-40" role="dialog" aria-modal="true">
+        <div
+          className="absolute inset-0 bg-slate-900/40"
+          onClick={() => setMobileNavOpen(false)}
+        />
+        <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-2xl max-h-[75vh] overflow-y-auto pb-24">
+          <div className="sticky top-0 bg-white px-4 pt-3 pb-2 border-b border-slate-100">
+            <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-slate-200" />
+            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Navigate</span>
+          </div>
+          <nav className="p-2 space-y-1">
+            {navItems.map((item) => {
+              const active = currentView === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => goTo(item.id)}
+                  className={`flex w-full items-center px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
+                    active ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-100'
+                  }`}
+                >
+                  <span className="mr-2.5">{item.icon}</span>
+                  <span>{item.label}</span>
+                  {item.badge && (
+                    <span
+                      className={`ml-auto px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+                        active ? 'bg-white/20 text-white' : item.badgeColor
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
