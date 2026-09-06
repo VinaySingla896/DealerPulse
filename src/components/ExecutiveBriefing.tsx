@@ -293,7 +293,8 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({ data }) =>
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider border-b border-slate-200 pb-2 mb-3">
             Branch League Summary Table
           </h3>
-          <table className="w-full text-left text-xs text-slate-700">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[34rem] text-left text-xs text-slate-700">
             <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
               <tr>
                 <th className="py-2.5 px-3">Branch</th>
@@ -321,10 +322,11 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({ data }) =>
                 ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Sign-off Block */}
-        <div className="pt-6 border-t border-slate-200 flex justify-between items-center text-xs text-slate-500">
+        <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2 text-xs text-slate-500">
           <div>Prepared automatically by DealerPulse Intelligence Engine</div>
           <div>Reviewed by: ________________________ (Group CEO)</div>
         </div>
