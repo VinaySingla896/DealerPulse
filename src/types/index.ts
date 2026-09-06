@@ -137,3 +137,47 @@ export type FunnelMetrics = {
   pctOfTotal: number;
   dropoffFromPrevPct: number;
 };
+
+export type BranchForecast = {
+  branchId: string;
+  branchName: string;
+  city: string;
+  targetUnits: number;
+  targetRevenue: number;
+  deliveredUnits: number;
+  deliveredRevenue: number;
+  attainmentUnitsPct: number;
+  attainmentRevenuePct: number;
+  /** open leads still in the pipeline */
+  openLeadsCount: number;
+  openPipelineValue: number;
+  /** stage-weighted expected conversions from the open pipeline */
+  expectedAdditionalUnits: number;
+  expectedAdditionalRevenue: number;
+  /** delivered + expected */
+  projectedUnits: number;
+  projectedRevenue: number;
+  projectedAttainmentPct: number;
+  /** target - projected (positive = shortfall) */
+  unitGap: number;
+  /** projected attainment relative to the group's own projected attainment (1 = at group pace) */
+  vsGroupPace: number;
+  status: 'ahead' | 'on_track' | 'behind' | 'at_risk';
+};
+
+export type GroupTargetSummary = {
+  targetUnits: number;
+  targetRevenue: number;
+  deliveredUnits: number;
+  deliveredRevenue: number;
+  projectedUnits: number;
+  attainmentPct: number;
+  projectedAttainmentPct: number;
+  /** leads received in the period */
+  leadsReceived: number;
+  groupConversion: number;
+  /** leads that would be required to hit the unit target at the current group conversion rate */
+  leadsNeededForTarget: number;
+  /** leadsNeededForTarget - leadsReceived (positive = demand-generation shortfall) */
+  leadSupplyGap: number;
+};

@@ -11,6 +11,8 @@ import {
   calculateDeliveryBottlenecks,
   deriveGroupHeadlines,
   countEventsInMonth,
+  calculateBranchForecast,
+  calculateGroupTargetSummary,
 } from '../lib/metrics';
 import { DATA_AS_OF } from '../lib/data';
 import { scopeDataToPeriod, monthsInRange, FULL_PERIOD } from '../lib/period';
@@ -221,6 +223,47 @@ describe('DealerPulse Core Metrics Ground-Truth Verification', () => {
     // December status-history events
     expect(countEventsInMonth(data.leads, '2025-12')).toBe(343);
     expect(countEventsInMonth(data.leads, '2025-06')).toBeGreaterThan(0);
+  });
+
+  it('computes target attainment and a stage-weighted pipeline forecast', () => {
+    const forecasts = calculateBranchForecast(data);
+    expect(forecasts).toHaveLength(5);
+
+    const b3 = forecasts.find((f) => f.branchId === 'B3')!;
+    // Lakeside has real monthly targets and only 6 delivered → well under target
+    expect(b3.targetUnits).toBeGreaterThan(0);
+    expect(b3.deliveredUnits).toBe(6);
+    expect(b3.attainmentUnitsPct).toBeCloseTo(6 / b3.targetUnits, 5);
+    // Projection = delivered + stage-weighted open pipeline, and it is still short
+    expect(b3.projectedUnits).toBeGreaterThanOrEqual(b3.deliveredUnits);
+    expect(b3.projectedAttainmentPct).toBeLessThan(1);
+    expect(b3.unitGap).toBeGreaterThan(0);
+    expect(b3.status === 'behind' || b3.status === 'at_risk').toBe(true);
+
+    // Every branch: projected units never below delivered, gap ties out
+    forecasts.forEach((f) => {
+      expect(f.projectedUnits).toBeGreaterThanOrEqual(f.deliveredUnits);
+      expect(f.unitGap).toBeCloseTo(f.targetUnits - f.projectedUnits, 5);
+    });
+
+    // vsGroupPace: Lakeside is the group's slowest, and is well below pace
+    const slowest = [...forecasts].sort((a, b) => a.vsGroupPace - b.vsGroupPace)[0];
+    expect(slowest.branchId).toBe('B3');
+    expect(slowest.vsGroupPace).toBeLessThan(0.6);
+  });
+
+  it('summarises group target attainment and the lead-supply gap', () => {
+    const g = calculateGroupTargetSummary(data);
+
+    expect(g.targetUnits).toBe(1426);
+    expect(g.deliveredUnits).toBe(160);
+    expect(g.leadsReceived).toBe(510);
+    expect(Math.round(g.groupConversion * 1000) / 10).toBe(31.4);
+
+    // ~1426 / 0.314 ≈ 4540 leads needed → shortfall well over 3000
+    expect(g.leadsNeededForTarget).toBeGreaterThan(4000);
+    expect(g.leadSupplyGap).toBeGreaterThan(3000);
+    expect(g.leadSupplyGap).toBeCloseTo(g.leadsNeededForTarget - g.leadsReceived, 5);
   });
 
   it('verifies status_history event counts and Trap 4 / 6', () => {

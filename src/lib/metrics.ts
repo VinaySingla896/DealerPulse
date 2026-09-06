@@ -1,4 +1,15 @@
-import { DealershipData, Lead, Delivery, SalesRep, BranchMetrics, RepMetrics, FunnelMetrics, LeadStatus } from '../types';
+import {
+  DealershipData,
+  Lead,
+  Delivery,
+  SalesRep,
+  BranchMetrics,
+  RepMetrics,
+  FunnelMetrics,
+  BranchForecast,
+  GroupTargetSummary,
+  LeadStatus,
+} from '../types';
 import { DATA_AS_OF, calculateIdleDays } from './data';
 
 export type FunnelSummary = {
@@ -166,6 +177,126 @@ export function calculateBranchMetrics(data: DealershipData): BranchMetrics[] {
       medianDaysToDeliver: medianDays,
     };
   });
+}
+
+/**
+ * Probability an open lead at a given stage still converts to a delivery.
+ * Used to turn the open pipeline into an expected-units forecast.
+ */
+export const STAGE_CLOSE_PROBABILITY: Record<LeadStatus, number> = {
+  new: 0.1,
+  contacted: 0.2,
+  test_drive: 0.4,
+  negotiation: 0.6,
+  order_placed: 0.9,
+  delivered: 0,
+  lost: 0,
+};
+
+/**
+ * Target attainment + a stage-weighted pipeline forecast per branch.
+ *
+ * `attainment` = delivered ÷ target for the period.
+ * `projected`  = delivered + Σ(open lead value/units × stage close probability).
+ *
+ * The synthetic dataset's targets are set well above the lead volume it supplies,
+ * so absolute attainment is uniformly low. `status` is therefore graded *relative
+ * to the group's own pace* (`vsGroupPace`) — it surfaces the branches that are
+ * lagging their peers, not just the fact that the whole group trails target.
+ */
+export function calculateBranchForecast(data: DealershipData): BranchForecast[] {
+  const branchMetrics = calculateBranchMetrics(data);
+  const byId = new Map(branchMetrics.map((b) => [b.branchId, b]));
+
+  const groupTarget = branchMetrics.reduce((s, b) => s + b.targetUnits, 0);
+  const groupDelivered = branchMetrics.reduce((s, b) => s + b.deliveredUnits, 0);
+
+  const rows = data.branches.map((branch) => {
+    const bm = byId.get(branch.id)!;
+    const openLeads = data.leads.filter(
+      (l) => l.branch_id === branch.id && l.status !== 'delivered' && l.status !== 'lost'
+    );
+
+    let expectedAdditionalUnits = 0;
+    let expectedAdditionalRevenue = 0;
+    openLeads.forEach((l) => {
+      const p = STAGE_CLOSE_PROBABILITY[l.status] ?? 0;
+      expectedAdditionalUnits += p;
+      expectedAdditionalRevenue += p * l.deal_value;
+    });
+
+    const projectedUnits = bm.deliveredUnits + expectedAdditionalUnits;
+    const projectedRevenue = bm.deliveredRevenue + expectedAdditionalRevenue;
+    const projectedAttainmentPct = bm.targetUnits > 0 ? projectedUnits / bm.targetUnits : 0;
+    const unitGap = bm.targetUnits - projectedUnits;
+
+    return {
+      branchId: branch.id,
+      branchName: branch.name,
+      city: branch.city,
+      targetUnits: bm.targetUnits,
+      targetRevenue: bm.targetRevenue,
+      deliveredUnits: bm.deliveredUnits,
+      deliveredRevenue: bm.deliveredRevenue,
+      attainmentUnitsPct: bm.attainmentUnitsPct,
+      attainmentRevenuePct: bm.attainmentRevenuePct,
+      openLeadsCount: openLeads.length,
+      openPipelineValue: bm.openPipelineValue,
+      expectedAdditionalUnits,
+      expectedAdditionalRevenue,
+      projectedUnits,
+      projectedRevenue,
+      projectedAttainmentPct,
+      unitGap,
+      vsGroupPace: 0,
+      status: 'at_risk' as BranchForecast['status'],
+    };
+  });
+
+  const groupProjectedAttain =
+    groupTarget > 0
+      ? (groupDelivered + rows.reduce((s, r) => s + r.expectedAdditionalUnits, 0)) / groupTarget
+      : 0;
+
+  rows.forEach((r) => {
+    r.vsGroupPace = groupProjectedAttain > 0 ? r.projectedAttainmentPct / groupProjectedAttain : 0;
+    if (r.projectedAttainmentPct >= 1) r.status = 'ahead';
+    else if (r.vsGroupPace >= 1.05) r.status = 'ahead';
+    else if (r.vsGroupPace >= 0.9) r.status = 'on_track';
+    else if (r.vsGroupPace >= 0.6) r.status = 'behind';
+    else r.status = 'at_risk';
+  });
+
+  return rows;
+}
+
+/** Group-level target roll-up, including the lead-supply gap vs the unit target. */
+export function calculateGroupTargetSummary(data: DealershipData): GroupTargetSummary {
+  const forecasts = calculateBranchForecast(data);
+  const funnel = calculateFunnelMetrics(data.leads);
+
+  const targetUnits = forecasts.reduce((s, f) => s + f.targetUnits, 0);
+  const targetRevenue = forecasts.reduce((s, f) => s + f.targetRevenue, 0);
+  const deliveredUnits = funnel.statusCounts.delivered;
+  const deliveredRevenue = funnel.deliveredRevenue;
+  const projectedUnits = forecasts.reduce((s, f) => s + f.projectedUnits, 0);
+  const leadsReceived = funnel.totalLeads;
+  const groupConversion = leadsReceived > 0 ? deliveredUnits / leadsReceived : 0;
+  const leadsNeededForTarget = groupConversion > 0 ? targetUnits / groupConversion : 0;
+
+  return {
+    targetUnits,
+    targetRevenue,
+    deliveredUnits,
+    deliveredRevenue,
+    projectedUnits,
+    attainmentPct: targetUnits > 0 ? deliveredUnits / targetUnits : 0,
+    projectedAttainmentPct: targetUnits > 0 ? projectedUnits / targetUnits : 0,
+    leadsReceived,
+    groupConversion,
+    leadsNeededForTarget,
+    leadSupplyGap: leadsNeededForTarget - leadsReceived,
+  };
 }
 
 /**

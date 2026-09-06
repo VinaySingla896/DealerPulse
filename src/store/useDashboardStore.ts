@@ -4,6 +4,7 @@ export type DashboardView =
   | 'overview'
   | 'pipeline'
   | 'reps'
+  | 'targets'
   | 'fulfilment'
   | 'simulator'
   | 'briefing';

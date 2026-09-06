@@ -6,6 +6,7 @@ import {
   calculateDeliveryBottlenecks,
   calculateRepMetrics,
   calculateBranchMetrics,
+  calculateBranchForecast,
   calculateSourceMetrics,
   countEventsInMonth,
 } from '../lib/metrics';
@@ -21,7 +22,8 @@ import {
   FileText,
   RefreshCw,
   SlidersHorizontal,
-  Calendar
+  Calendar,
+  Target
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -69,6 +71,9 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
       : 0;
   const worstBranch = [...branchMetrics].sort((a, b) => a.conversionRate - b.conversionRate)[0];
   const sourceOptions = calculateSourceMetrics(data.leads);
+  const behindTarget = calculateBranchForecast(data).filter(
+    (f) => f.status === 'behind' || f.status === 'at_risk'
+  ).length;
 
   const navItems: { id: DashboardView; label: string; icon: React.ReactNode; badge?: string; badgeColor?: string }[] = [
     { id: 'overview', label: 'Overview', icon: <TrendingUp className="w-4 h-4" /> },
@@ -85,6 +90,13 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
       icon: <Users className="w-4 h-4" />,
       badge: outlierCount > 0 ? `${outlierCount} Outlier${outlierCount > 1 ? 's' : ''}` : undefined,
       badgeColor: 'bg-red-100 text-red-800'
+    },
+    {
+      id: 'targets',
+      label: 'Targets & Forecast',
+      icon: <Target className="w-4 h-4" />,
+      badge: behindTarget > 0 ? `${behindTarget} Behind` : undefined,
+      badgeColor: 'bg-amber-100 text-amber-800'
     },
     {
       id: 'fulfilment',

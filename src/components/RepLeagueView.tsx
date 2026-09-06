@@ -3,9 +3,12 @@ import { DealershipData, SalesRep } from '../types';
 import { useDashboardStore } from '../store/useDashboardStore';
 import { calculateRepMetrics } from '../lib/metrics';
 import { formatINR, formatPct, calculateIdleDays, displayLostReason } from '../lib/data';
+import { format } from 'date-fns';
 import {
   AlertTriangle,
   Award,
+  ChevronDown,
+  ChevronRight,
   ShieldAlert,
   X
 } from 'lucide-react';
@@ -18,6 +21,7 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
   const { selectedBranchId, setSelectedBranchId } = useDashboardStore();
   const [roleFilter, setRoleFilter] = useState<'sales_officer' | 'all'>('sales_officer');
   const [selectedRep, setSelectedRep] = useState<SalesRep | null>(null);
+  const [expandedLead, setExpandedLead] = useState<string | null>(null);
 
   const repMetrics = calculateRepMetrics(data, selectedBranchId);
 
@@ -89,27 +93,70 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
                 <tbody className="divide-y divide-slate-100">
                   {repLeads.map((l) => {
                     const idle = calculateIdleDays(l.last_activity_at);
+                    const isExpanded = expandedLead === l.id;
                     return (
-                      <tr key={l.id} className="hover:bg-slate-50/80">
-                        <td className="py-2 px-4 font-semibold text-slate-900">{l.customer_name}</td>
-                        <td className="py-2 px-3">{l.model_interested}</td>
-                        <td className="py-2 px-3">
-                          <span className="inline-flex px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
-                            {l.status.replace('_', ' ')}
-                          </span>
-                        </td>
-                        <td className="py-2 px-3 text-right font-semibold">
-                          {l.status === 'delivered' || l.status === 'lost' ? '—' : `${idle.toFixed(0)}d`}
-                        </td>
-                        <td className="py-2 px-3 text-right font-bold text-slate-900">
-                          {formatINR(l.deal_value)}
-                        </td>
-                        <td className="py-2 px-4 max-w-xs truncate text-[11px] text-slate-500">
-                          {l.status === 'lost'
-                            ? displayLostReason(l.lost_reason)
-                            : l.status_history[l.status_history.length - 1]?.note || '—'}
-                        </td>
-                      </tr>
+                      <React.Fragment key={l.id}>
+                        <tr
+                          onClick={() => setExpandedLead(isExpanded ? null : l.id)}
+                          className={`cursor-pointer hover:bg-slate-50/80 ${isExpanded ? 'bg-slate-50' : ''}`}
+                          title="Show full lead journey"
+                        >
+                          <td className="py-2 px-4 font-semibold text-slate-900">
+                            <span className="inline-flex items-center gap-1">
+                              {isExpanded ? (
+                                <ChevronDown className="w-3 h-3 text-slate-400" />
+                              ) : (
+                                <ChevronRight className="w-3 h-3 text-slate-400" />
+                              )}
+                              {l.customer_name}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3">{l.model_interested}</td>
+                          <td className="py-2 px-3">
+                            <span className="inline-flex px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
+                              {l.status.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-right font-semibold">
+                            {l.status === 'delivered' || l.status === 'lost' ? '—' : `${idle.toFixed(0)}d`}
+                          </td>
+                          <td className="py-2 px-3 text-right font-bold text-slate-900">
+                            {formatINR(l.deal_value)}
+                          </td>
+                          <td className="py-2 px-4 max-w-xs truncate text-[11px] text-slate-500">
+                            {l.status === 'lost'
+                              ? displayLostReason(l.lost_reason)
+                              : l.status_history[l.status_history.length - 1]?.note || '—'}
+                          </td>
+                        </tr>
+                        {isExpanded && (
+                          <tr className="bg-slate-50/70">
+                            <td colSpan={6} className="px-6 py-4">
+                              <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide mb-2">
+                                Lead journey · {l.id} · created {format(new Date(l.created_at), 'd MMM yyyy')}
+                                {l.expected_close_date &&
+                                  ` · expected close ${format(new Date(l.expected_close_date), 'd MMM yyyy')}`}
+                              </div>
+                              <ol className="relative border-l border-slate-300 ml-1.5 space-y-3">
+                                {l.status_history.map((h, i) => (
+                                  <li key={i} className="ml-4">
+                                    <span className="absolute -left-[5px] mt-1 w-2.5 h-2.5 rounded-full bg-slate-400" />
+                                    <div className="flex flex-wrap items-baseline gap-x-2">
+                                      <span className="font-bold text-slate-800 capitalize">
+                                        {h.status.replace('_', ' ')}
+                                      </span>
+                                      <span className="text-[10px] text-slate-400">
+                                        {format(new Date(h.timestamp), 'd MMM yyyy, HH:mm')}
+                                      </span>
+                                    </div>
+                                    <p className="text-[11px] text-slate-500">{h.note}</p>
+                                  </li>
+                                ))}
+                              </ol>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

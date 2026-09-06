@@ -7,6 +7,7 @@ import { Header } from './components/Header';
 import { OverviewView } from './components/OverviewView';
 import { PipelineActionBoard } from './components/PipelineActionBoard';
 import { RepLeagueView } from './components/RepLeagueView';
+import { TargetForecastView } from './components/TargetForecastView';
 import { FulfilmentView } from './components/FulfilmentView';
 import { DecemberSimulator } from './components/DecemberSimulator';
 import { ExecutiveBriefing } from './components/ExecutiveBriefing';
@@ -100,6 +101,7 @@ export const App: React.FC = () => {
             {currentView === 'overview' && <OverviewView data={scopedData} />}
             {currentView === 'pipeline' && <PipelineActionBoard data={scopedData} />}
             {currentView === 'reps' && <RepLeagueView data={scopedData} />}
+            {currentView === 'targets' && <TargetForecastView data={scopedData} />}
             {currentView === 'fulfilment' && <FulfilmentView data={scopedData} />}
             {/* The replay is inherently a December walk-through — always full data. */}
             {currentView === 'simulator' && <DecemberSimulator data={data} />}
