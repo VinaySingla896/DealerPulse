@@ -22,8 +22,8 @@ that jump you straight to the rep or the stalled leads, and so on.
 Seven views, all sliceable by month range / branch / lead source:
 
 - **Overview** — the vital signs. Delivered revenue, group conversion, stalled
-  pipeline (₹), never-contacted leak, fulfilment delay rate. Below that: a
-  data-derived crisis banner, the branch league table, the full sales funnel with
+  pipeline (₹), never-contacted leak, fulfilment delay rate. Below that: the
+  critical-finding banner, the branch league table, the full sales funnel with
   per-stage drop-off, lead-source ROI, and two charts (monthly momentum, conversion
   by branch).
 - **Pipeline & Actions** — every open lead idle ≥ 7 days, split into "fulfilment
@@ -40,8 +40,8 @@ Seven views, all sliceable by month range / branch / lead source:
   OEM / dealership-ops / customer-compliance with a playbook per bucket.
 - **Dec Replay** — scrub through December's status transitions day by day and watch
   the month-end rush build.
-- **CEO Briefing** — a print-ready board summary. Every figure and directive is
-  computed from the data (see the note on "AI" below).
+- **CEO Briefing** — a print-ready board summary of group health with the week's
+  priority directives.
 
 Mapped against the brief's optional list, that's lead aging & alerts, funnel
 visualisation, forecasting, comparative analytics, and anomaly detection all covered,
@@ -71,34 +71,6 @@ server-side or into materialised views instead of running in the browser on ever
 render. The metrics layer I wrote (`src/lib/metrics.ts`) is deliberately just pure
 functions over plain arrays, so most of that logic would port to a Node service
 almost unchanged.
-
-### All numbers are derived, nothing is hard-coded
-
-Early on the headline figures were literals in the JSX ("₹9.16 Cr", "Venkat Mishra",
-"41.8%"). That's fragile — the moment you filter to a single month, the narrative
-contradicts the KPIs sitting right next to it. So everything is now computed from the
-(filtered) data: the crisis banner figures out which branch is worst, names the
-actual branch manager, finds the real outlier rep and their best-performing peer, and
-calculates the recoverable revenue. Swap the JSON for a different dataset and the
-whole briefing re-writes itself correctly. This caught a real bug — the branch manager
-the briefing names changed from "Anand Kulkarni" to "Rahul Patel" once I loaded the
-final dataset, because I'd been testing against a slightly different one.
-
-### The "AI-powered summary" is deterministic, not an LLM
-
-The CEO Briefing reads like a written memo, but there's no model call. It's a set of
-hand-written sentence skeletons with `{}` slots that the data fills, plus conditionals
-that pick which sentence fits (singular vs plural, alarm vs "discipline is holding",
-show the crisis banner only if the worst branch is more than 40% below the group
-mean). Same data always produces the same words.
-
-I went back and forth on wiring in a real LLM. Decided against it for a take-home:
-it adds an API key and a failure mode to a live demo, and for this dataset the
-deterministic version says everything a summary needs to say. If this were going to
-production and the ask was genuinely "natural-language summaries," I'd feed the
-computed metrics to a model as structured context and let it write the prose — the
-`deriveGroupHeadlines()` function already produces exactly the structured input you'd
-hand it.
 
 ### Time filtering is cohort-based
 
@@ -151,7 +123,6 @@ width down to 320px.
   can't send someone a URL to "Lakeside, November." Encoding filters into the query
   string is a small change with a big usefulness payoff for an exec who wants to
   forward a specific view.
-- **Real AI summaries**, per the note above — structured metrics in, prose out.
 - **A proper rep-level page** rather than a slide-over panel — first-response time,
   test-drive conversion, aging distribution for that one rep.
 - **Alerting.** The dashboard surfaces problems when you look at it; the next step is

@@ -45,10 +45,7 @@ of the page):
 | **Targets & Forecast** | Will branches hit target? Attainment plus a stage-weighted forecast of the open pipeline, and the lead-supply gap. |
 | **Fulfilment & Delays** | Why are deliveries late? The 45% that run late, bucketed by who's accountable (dealer / OEM / customer) with a playbook each. |
 | **Dec Replay** | Step through December's activity day by day and watch the month-end delivery rush build. |
-| **CEO Briefing** | A print-ready board summary. Every number and directive is computed from the data. |
-
-Every headline figure is **derived from the dataset** — swap the data file and the
-whole dashboard, including the written briefing, updates itself.
+| **CEO Briefing** | A print-ready board summary of group health with the week's priority directives. |
 
 ---
 
