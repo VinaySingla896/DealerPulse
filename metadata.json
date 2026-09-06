@@ -1,6 +1,0 @@
-{
-  "name": "DealerPulse",
-  "description": "Real-time dealership performance intelligence dashboard for a 5-branch Toyota dealership group in India",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}
