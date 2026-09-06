@@ -98,7 +98,7 @@ business clearly isn't calibrated to hit.
 
 ### Charts: Recharts, used sparingly
 
-Most of the dashboard is tables and CSS bars, which I think is right for dense
+Most of the dashboard is tables, which I think is right for dense
 operational data — you want to read exact values, not eyeball a chart. Recharts shows
 up in the three places where a trend or a comparison genuinely reads better as a
 picture: monthly momentum, conversion-by-branch, and delivered-vs-target. It's split
