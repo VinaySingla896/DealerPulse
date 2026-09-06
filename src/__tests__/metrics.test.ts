@@ -9,6 +9,8 @@ import {
   calculateSourceMetrics,
   calculatePipelineHealth,
   calculateDeliveryBottlenecks,
+  deriveGroupHeadlines,
+  countEventsInMonth,
 } from '../lib/metrics';
 import { DATA_AS_OF } from '../lib/data';
 import { scopeDataToPeriod, monthsInRange, FULL_PERIOD } from '../lib/period';
@@ -193,6 +195,32 @@ describe('DealerPulse Core Metrics Ground-Truth Verification', () => {
     expect(q3Branches[0].targetUnits).toBeLessThan(
       allBranches.find((b) => b.branchId === q3Branches[0].branchId)!.targetUnits
     );
+  });
+
+  it('derives the group headline story from data (no hard-coded facts)', () => {
+    const hl = deriveGroupHeadlines(data);
+
+    // Weakest branch is Lakeside, strongest is Downtown
+    expect(hl.worstBranch.branchId).toBe('B3');
+    expect(hl.topBranch.branchId).toBe('B1');
+    expect(Math.round(hl.worstBranch.conversionRate * 1000) / 10).toBe(7.6);
+
+    // Outlier rep is surfaced with real figures
+    expect(hl.worstRep?.repId).toBe('SR16');
+    expect(hl.worstRep?.branchId).toBe('B3');
+    expect(hl.topPeer?.branchId).toBe('B3');
+    expect(hl.topPeer?.conversionRate).toBeGreaterThan(hl.worstRep!.conversionRate);
+
+    // Recoverable revenue is positive and bounded by the branch's own pipeline
+    expect(hl.recoverableUnits).toBeGreaterThan(0);
+    expect(hl.recoverableUnits).toBeLessThan(hl.worstBranch.totalLeads);
+
+    expect(hl.deliveredUnits).toBe(160);
+    expect(Math.round(hl.groupConversion * 1000) / 10).toBe(31.4);
+
+    // December status-history events
+    expect(countEventsInMonth(data.leads, '2025-12')).toBe(343);
+    expect(countEventsInMonth(data.leads, '2025-06')).toBeGreaterThan(0);
   });
 
   it('verifies status_history event counts and Trap 4 / 6', () => {

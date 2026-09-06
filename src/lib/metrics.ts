@@ -391,3 +391,75 @@ export function calculateDeliveryBottlenecks(deliveries: Delivery[]) {
     p90Days,
   };
 }
+
+/**
+ * Derive the group-level "story" the CEO banners and the executive briefing narrate,
+ * entirely from data: which branch is the drag, which rep is the outlier, how much
+ * revenue closing the gap to group parity would unlock.
+ */
+export function deriveGroupHeadlines(data: DealershipData) {
+  const branches = calculateBranchMetrics(data);
+  const funnel = calculateFunnelMetrics(data.leads);
+  const health = calculatePipelineHealth(data.leads);
+  const reps = calculateRepMetrics(data);
+
+  const ranked = [...branches].sort((a, b) => b.conversionRate - a.conversionRate);
+  const topBranch = ranked[0];
+  const worstBranch = ranked[ranked.length - 1];
+
+  const groupMeanConversion =
+    branches.length > 0
+      ? branches.reduce((s, b) => s + b.conversionRate, 0) / branches.length
+      : 0;
+
+  // Outlier rep: prefer a flagged statistical outlier (lowest z), else the weakest
+  // officer in the worst branch with a meaningful lead count.
+  const flaggedOutliers = reps.filter((r) => r.isOutlier).sort((a, b) => a.zScore - b.zScore);
+  const worstBranchOfficers = reps
+    .filter((r) => r.branchId === worstBranch?.branchId && r.role === 'sales_officer' && r.totalLeads >= 5)
+    .sort((a, b) => a.conversionRate - b.conversionRate);
+  const worstRep = flaggedOutliers[0] ?? worstBranchOfficers[0];
+  const topPeer = worstRep
+    ? reps
+        .filter(
+          (r) =>
+            r.branchId === worstRep.branchId &&
+            r.role === 'sales_officer' &&
+            r.repId !== worstRep.repId &&
+            r.totalLeads >= 5
+        )
+        .sort((a, b) => b.conversionRate - a.conversionRate)[0]
+    : undefined;
+
+  // Revenue recoverable at the worst branch if it converted at the group mean.
+  const parityGapRate = worstBranch ? Math.max(0, groupMeanConversion - worstBranch.conversionRate) : 0;
+  const recoverableUnits = worstBranch ? Math.round(parityGapRate * worstBranch.totalLeads) : 0;
+  const groupAvgDealValue =
+    funnel.statusCounts.delivered > 0 ? funnel.deliveredRevenue / funnel.statusCounts.delivered : 0;
+  const recoverableRevenue = recoverableUnits * groupAvgDealValue;
+
+  return {
+    funnel,
+    health,
+    branches,
+    topBranch,
+    worstBranch,
+    groupMeanConversion,
+    worstRep,
+    topPeer,
+    recoverableUnits,
+    recoverableRevenue,
+    deliveredUnits: funnel.statusCounts.delivered,
+    deliveredRevenue: funnel.deliveredRevenue,
+    totalLeads: funnel.totalLeads,
+    groupConversion: funnel.totalLeads > 0 ? funnel.statusCounts.delivered / funnel.totalLeads : 0,
+  };
+}
+
+/** Count status-history transitions that occurred within a given month (e.g. '2025-12'). */
+export function countEventsInMonth(leads: Lead[], month: string): number {
+  return leads.reduce(
+    (sum, l) => sum + l.status_history.filter((h) => h.timestamp.slice(0, 7) === month).length,
+    0
+  );
+}

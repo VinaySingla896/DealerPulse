@@ -6,7 +6,8 @@ import {
   calculateBranchMetrics,
   calculateSourceMetrics,
   calculatePipelineHealth,
-  calculateDeliveryBottlenecks
+  calculateDeliveryBottlenecks,
+  deriveGroupHeadlines
 } from '../lib/metrics';
 import { formatINR, formatPct } from '../lib/data';
 import { isFullPeriod, periodLabel } from '../lib/period';
@@ -60,6 +61,16 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
   const topSource = sourceMetrics[0];
   const bottomSource = sourceMetrics[sourceMetrics.length - 1];
 
+  // Full-year, all-branch "story" — only rendered when nothing is filtered.
+  const hl = fullScope ? deriveGroupHeadlines(data) : null;
+  const worst = hl?.worstBranch;
+  const worstBM = worst
+    ? data.sales_reps.find((r) => r.branch_id === worst.branchId && r.role === 'branch_manager')
+    : undefined;
+  const otherBranchNcRates = hl
+    ? hl.branches.filter((b) => b.branchId !== worst?.branchId).map((b) => b.neverContactedRate)
+    : [];
+
   return (
     <div className="space-y-6">
       {!fullScope && (
@@ -74,8 +85,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
         </div>
       )}
 
-      {/* 🚨 Priority 1: Lakeside Crisis Banner (only meaningful on the full-year, all-branch view) */}
-      {fullScope && (
+      {/* 🚨 Priority 1: Worst-branch crisis banner (data-derived; only on the full-year, all-branch view) */}
+      {hl && worst && worst.conversionRate < hl.groupMeanConversion * 0.6 && (
       <div
         id="banner-lakeside-alert"
         className="bg-red-50 border-2 border-red-300 rounded-xl p-5 shadow-xs transition-all"
@@ -88,19 +99,26 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-base font-bold text-red-950">
-                  Critical Finding: Lakeside Toyota (Bangalore) Contact Rate Collapse
+                  Critical Finding: {worst.branchName} ({worst.city}) Contact Rate Collapse
                 </h2>
                 <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-red-200 text-red-900 uppercase tracking-wider">
                   Immediate CEO Action Required
                 </span>
               </div>
               <p className="mt-1 text-xs sm:text-sm text-red-800 leading-relaxed max-w-4xl">
-                Lakeside converts at only <strong className="text-red-950 underline font-bold">7.6%</strong> (6 of 79 units) 
-                while the group averages <strong className="text-red-950 font-bold">31.4%</strong>. 
-                Root cause is <strong className="text-red-950">not closing skill</strong>: 
-                <strong className="text-red-950 underline font-bold"> 41.8% of incoming leads (33 leads) were never contacted</strong> 
-                (vs 17.5%–22.0% across all other branches). Additionally, rep <strong className="text-red-950">Venkat Mishra (SR16)</strong> converts 
-                at only 4.55% with 22 leads assigned.
+                {worst.branchName} converts at only{' '}
+                <strong className="text-red-950 underline font-bold">{formatPct(worst.conversionRate)}</strong>{' '}
+                ({worst.deliveredUnits} of {worst.totalLeads} units) while the group averages{' '}
+                <strong className="text-red-950 font-bold">{formatPct(hl.groupMeanConversion)}</strong>.
+                Root cause is <strong className="text-red-950">not closing skill</strong>:{' '}
+                <strong className="text-red-950 underline font-bold">
+                  {formatPct(worst.neverContactedRate)} of incoming leads ({worst.neverContactedCount} leads) were never contacted
+                </strong>{' '}
+                (vs {formatPct(Math.min(...otherBranchNcRates))}–{formatPct(Math.max(...otherBranchNcRates))} across all other branches).
+                {hl.worstRep && (
+                  <> Additionally, rep <strong className="text-red-950">{hl.worstRep.repName} ({hl.worstRep.repId})</strong> converts
+                  at only {formatPct(hl.worstRep.conversionRate)} with {hl.worstRep.totalLeads} leads assigned.</>
+                )}
               </p>
             </div>
           </div>
@@ -109,23 +127,23 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
             <button
               id="btn-lakeside-audit-action"
               onClick={() => {
-                setSelectedBranchId('B3');
+                setSelectedBranchId(worst.branchId);
                 setCurrentView('reps');
               }}
               className="inline-flex items-center justify-center px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors"
             >
-              <span>Inspect Rep SR16 & Branch Reps</span>
+              <span>Inspect {worst.branchName} Reps</span>
               <ChevronRight className="w-4 h-4 ml-1" />
             </button>
             <button
               id="btn-lakeside-pipeline-action"
               onClick={() => {
-                setSelectedBranchId('B3');
+                setSelectedBranchId(worst.branchId);
                 setCurrentView('pipeline');
               }}
               className="inline-flex items-center justify-center px-3 py-2 bg-white hover:bg-red-100 text-red-900 border border-red-300 text-xs font-semibold rounded-lg transition-colors"
             >
-              View Lakeside Stalled Leads
+              View {worst.branchName} Stalled Leads
             </button>
           </div>
         </div>
@@ -134,15 +152,26 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
         <div className="mt-4 pt-3 border-t border-red-200 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
           <div className="bg-white/80 rounded-md p-2.5 border border-red-200">
             <span className="font-bold text-red-900 block">1. Enforce 2-Hour Lead SLA</span>
-            <span className="text-red-700">Audit BM Anand Kulkarni's intake queue; 33 leads died with zero rep outreach.</span>
+            <span className="text-red-700">
+              Audit {worstBM ? `BM ${worstBM.name}'s` : 'the branch'} intake queue; {worst.neverContactedCount} leads died with zero rep outreach.
+            </span>
           </div>
           <div className="bg-white/80 rounded-md p-2.5 border border-red-200">
-            <span className="font-bold text-red-900 block">2. Reassign From SR16</span>
-            <span className="text-red-700">Shift 10 active leads from Venkat Mishra (4.55%) to Varun Kamath (11.11%).</span>
+            <span className="font-bold text-red-900 block">
+              2. Reassign From {hl.worstRep ? hl.worstRep.repId : 'weakest rep'}
+            </span>
+            <span className="text-red-700">
+              {hl.worstRep && hl.topPeer
+                ? `Shift active leads from ${hl.worstRep.repName} (${formatPct(hl.worstRep.conversionRate)}) to ${hl.topPeer.repName} (${formatPct(hl.topPeer.conversionRate)}).`
+                : 'Rebalance the weakest rep’s active leads to a top performer.'}
+            </span>
           </div>
           <div className="bg-white/80 rounded-md p-2.5 border border-red-200">
             <span className="font-bold text-red-900 block">3. Recoverable Revenue</span>
-            <span className="text-red-700">Closing group parity gap unlocks +18 deliveries worth ₹4.38 Cr at Lakeside.</span>
+            <span className="text-red-700">
+              Closing the group-parity gap unlocks +{hl.recoverableUnits} deliveries worth{' '}
+              {formatINR(hl.recoverableRevenue)} at {worst.branchName}.
+            </span>
           </div>
         </div>
       </div>
@@ -177,7 +206,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
               {formatPct(funnel.totalLeads > 0 ? funnel.statusCounts.delivered / funnel.totalLeads : 0)}
             </div>
             <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-sm">
-              Group avg {formatPct(groupMeanConversion)}
+              Branch avg {formatPct(groupMeanConversion)}
             </span>
           </div>
           <p className="mt-1 text-[11px] text-slate-500">

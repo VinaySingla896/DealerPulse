@@ -1,14 +1,22 @@
 import React from 'react';
 import { useDashboardStore, DashboardView } from '../store/useDashboardStore';
 import { ALL_MONTHS, MONTH_LABELS, periodLabel } from '../lib/period';
-import { Branch } from '../types';
-import { 
-  Building2, 
-  AlertTriangle, 
-  Clock, 
-  TrendingUp, 
-  Users, 
-  Truck, 
+import {
+  calculatePipelineHealth,
+  calculateDeliveryBottlenecks,
+  calculateRepMetrics,
+  calculateBranchMetrics,
+  calculateSourceMetrics,
+  countEventsInMonth,
+} from '../lib/metrics';
+import { formatINR } from '../lib/data';
+import { DealershipData } from '../types';
+import {
+  AlertTriangle,
+  Clock,
+  TrendingUp,
+  Users,
+  Truck,
   PlayCircle,
   FileText,
   RefreshCw,
@@ -17,10 +25,14 @@ import {
 } from 'lucide-react';
 
 interface HeaderProps {
-  branches: Branch[];
+  /** period-scoped data — badge counts follow the active time filter */
+  data: DealershipData;
+  /** full, unscoped dataset — for the branch selector and the always-December replay badge */
+  fullData: DealershipData;
 }
 
-export const Header: React.FC<HeaderProps> = ({ branches }) => {
+export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
+  const allBranches = fullData.branches;
   const {
     currentView,
     setCurrentView,
@@ -43,40 +55,55 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
     periodStart !== null ||
     periodEnd !== null;
 
+  // Badge counts derived from the (scoped) data
+  const health = calculatePipelineHealth(data.leads);
+  const bottlenecks = calculateDeliveryBottlenecks(data.deliveries);
+  const outlierCount = calculateRepMetrics(data).filter((r) => r.isOutlier).length;
+  // The Dec replay always walks the full December, regardless of the period filter.
+  const decEvents = countEventsInMonth(fullData.leads, '2025-12');
+
+  const branchMetrics = calculateBranchMetrics(data);
+  const groupMean =
+    branchMetrics.length > 0
+      ? branchMetrics.reduce((s, b) => s + b.conversionRate, 0) / branchMetrics.length
+      : 0;
+  const worstBranch = [...branchMetrics].sort((a, b) => a.conversionRate - b.conversionRate)[0];
+  const sourceOptions = calculateSourceMetrics(data.leads);
+
   const navItems: { id: DashboardView; label: string; icon: React.ReactNode; badge?: string; badgeColor?: string }[] = [
     { id: 'overview', label: 'Overview', icon: <TrendingUp className="w-4 h-4" /> },
-    { 
-      id: 'pipeline', 
-      label: 'Pipeline & Actions', 
-      icon: <Clock className="w-4 h-4" />, 
-      badge: '39 Stalled', 
-      badgeColor: 'bg-amber-100 text-amber-800' 
+    {
+      id: 'pipeline',
+      label: 'Pipeline & Actions',
+      icon: <Clock className="w-4 h-4" />,
+      badge: `${health.combinedIdleCount} Stalled`,
+      badgeColor: 'bg-amber-100 text-amber-800'
     },
-    { 
-      id: 'reps', 
-      label: 'Rep League', 
+    {
+      id: 'reps',
+      label: 'Rep League',
       icon: <Users className="w-4 h-4" />,
-      badge: '1 Outlier',
+      badge: outlierCount > 0 ? `${outlierCount} Outlier${outlierCount > 1 ? 's' : ''}` : undefined,
       badgeColor: 'bg-red-100 text-red-800'
     },
-    { 
-      id: 'fulfilment', 
-      label: 'Fulfilment & Delays', 
+    {
+      id: 'fulfilment',
+      label: 'Fulfilment & Delays',
       icon: <Truck className="w-4 h-4" />,
-      badge: '72 Delayed',
+      badge: `${bottlenecks.delayedCount} Delayed`,
       badgeColor: 'bg-blue-100 text-blue-800'
     },
-    { 
-      id: 'simulator', 
-      label: 'Dec Replay', 
+    {
+      id: 'simulator',
+      label: 'Dec Replay',
       icon: <PlayCircle className="w-4 h-4" />,
-      badge: '343 Events',
+      badge: `${decEvents} Events`,
       badgeColor: 'bg-purple-100 text-purple-800'
     },
-    { 
-      id: 'briefing', 
-      label: 'CEO Briefing', 
-      icon: <FileText className="w-4 h-4" /> 
+    {
+      id: 'briefing',
+      label: 'CEO Briefing',
+      icon: <FileText className="w-4 h-4" />
     },
   ];
 
@@ -96,7 +123,7 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
                   Toyota Group India
                 </span>
                 <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  5 Branches · 30 Reps
+                  {allBranches.length} Branches · {data.sales_reps.length} Reps
                 </span>
               </div>
               <p className="text-xs text-slate-500">
@@ -121,18 +148,20 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
             </div>
 
             {/* Quick Audit Triggers */}
-            <button
-              id="btn-quick-lakeside"
-              onClick={() => {
-                setSelectedBranchId('B3');
-                setCurrentView('overview');
-              }}
-              className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
-              title="Filter directly to Lakeside Toyota crisis audit"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 mr-1 text-red-600" />
-              Lakeside Crisis
-            </button>
+            {worstBranch && worstBranch.conversionRate < groupMean * 0.6 && (
+              <button
+                id="btn-quick-lakeside"
+                onClick={() => {
+                  setSelectedBranchId(worstBranch.branchId);
+                  setCurrentView('overview');
+                }}
+                className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-red-50 text-red-700 border border-red-200 hover:bg-red-100 transition-colors"
+                title={`Filter directly to ${worstBranch.branchName} crisis audit`}
+              >
+                <AlertTriangle className="w-3.5 h-3.5 mr-1 text-red-600" />
+                {worstBranch.branchName.replace(' Toyota', '')} Crisis
+              </button>
+            )}
 
             <button
               id="btn-quick-stalled"
@@ -143,7 +172,7 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
               className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 transition-colors"
             >
               <Clock className="w-3.5 h-3.5 mr-1 text-amber-600" />
-              ₹9.16 Cr Stalled
+              {formatINR(health.combinedIdleValue)} Stalled
             </button>
           </div>
         </div>
@@ -231,8 +260,8 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
               onChange={(e) => setSelectedBranchId(e.target.value)}
               className="bg-white border border-slate-300 text-slate-800 text-xs rounded-md px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-slate-900 font-medium"
             >
-              <option value="all">All Branches (5)</option>
-              {branches.map((b) => (
+              <option value="all">All Branches ({allBranches.length})</option>
+              {allBranches.map((b) => (
                 <option key={b.id} value={b.id}>
                   {b.name} ({b.city})
                 </option>
@@ -246,13 +275,13 @@ export const Header: React.FC<HeaderProps> = ({ branches }) => {
               onChange={(e) => setSelectedSource(e.target.value)}
               className="bg-white border border-slate-300 text-slate-800 text-xs rounded-md px-2.5 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-slate-900 font-medium"
             >
-              <option value="all">All Sources (6)</option>
-              <option value="walk_in">Walk-in (45.7% conv)</option>
-              <option value="auto_expo">Auto Expo (30.2% conv)</option>
-              <option value="referral">Referral (30.1% conv)</option>
-              <option value="website">Website (28.0% conv)</option>
-              <option value="phone_enquiry">Phone Enquiry (27.8% conv)</option>
-              <option value="social_media">Social Media (13.9% conv)</option>
+              <option value="all">All Sources ({sourceOptions.length})</option>
+              {sourceOptions.map((s) => (
+                <option key={s.source} value={s.source}>
+                  {s.source.replace('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase())} (
+                  {Math.round(s.conversionRate * 1000) / 10}% conv)
+                </option>
+              ))}
             </select>
 
             {filtersActive && (

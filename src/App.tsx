@@ -61,7 +61,7 @@ export const App: React.FC = () => {
           <Loader2 className="w-8 h-8 text-red-600 animate-spin mx-auto" />
           <h2 className="mt-4 text-base font-bold text-slate-900">Loading DealerPulse Engine</h2>
           <p className="mt-1 text-xs text-slate-500">
-            Indexing 510 leads, 160 deliveries, and 2,068 audit trail entries...
+            Indexing leads, deliveries, and status-history audit trail...
           </p>
         </div>
       </div>
@@ -90,7 +90,7 @@ export const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-red-100 selection:text-red-900">
-      <Header branches={data.branches} />
+      <Header data={scopedData} fullData={data} />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {scopedData.leads.length === 0 ? (

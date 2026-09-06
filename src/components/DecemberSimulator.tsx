@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { DealershipData, Lead, StatusHistoryEntry, SalesRep, Branch } from '../types';
 import { useDashboardStore } from '../store/useDashboardStore';
+import { deriveGroupHeadlines } from '../lib/metrics';
 import { formatINR, formatPct } from '../lib/data';
 import { 
   Play, 
@@ -42,6 +43,10 @@ export const DecemberSimulator: React.FC<DecemberSimulatorProps> = ({ data }) =>
   const repMap = new Map<string, SalesRep>(data.sales_reps.map((r) => [r.id, r]));
   const branchMap = new Map<string, Branch>(data.branches.map((b) => [b.id, b]));
 
+  // Branch to watch during the replay = the group's weakest converter.
+  const watchBranch = deriveGroupHeadlines(data).worstBranch;
+  const watchBranchId = watchBranch?.branchId;
+
   // Extract all 343 December events
   const decStart = new Date('2025-12-01T00:00:00Z').getTime();
   const decEnd = new Date('2025-12-31T23:59:59Z').getTime();
@@ -72,6 +77,12 @@ export const DecemberSimulator: React.FC<DecemberSimulatorProps> = ({ data }) =>
   // Sort events chronologically
   allDecEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
+  const totalDecEvents = allDecEvents.length;
+  const totalDecDeliveries = allDecEvents.filter((e) => e.status === 'delivered').length;
+  const decTargetRevenue = data.targets
+    .filter((t) => t.month === '2025-12')
+    .reduce((sum, t) => sum + t.target_revenue, 0);
+
   // Filter events up to current simulatorDay
   const eventsUpToDay = allDecEvents.filter((e) => e.day <= simulatorDay);
   const eventsOnCurrentDay = allDecEvents.filter((e) => e.day === simulatorDay);
@@ -86,10 +97,6 @@ export const DecemberSimulator: React.FC<DecemberSimulatorProps> = ({ data }) =>
 
   const decRevenue = decDeliveries.reduce((sum, e) => sum + e.dealValue, 0);
 
-  // Check Lakeside activity in December
-  const lakesideDecEvents = eventsUpToDay.filter((e) => e.branchId === 'B3');
-  const lakesideContacts = lakesideDecEvents.filter((e) => e.status === 'contacted').length;
-  const lakesideNew = lakesideDecEvents.filter((e) => e.status === 'new').length;
 
   // Animation playback loop
   useEffect(() => {
@@ -121,12 +128,13 @@ export const DecemberSimulator: React.FC<DecemberSimulatorProps> = ({ data }) =>
               <span className="w-2.5 h-2.5 rounded-full bg-purple-600 animate-pulse"></span>
               <h2 className="text-base font-bold text-slate-900">December 2025 Operational Replay Simulator</h2>
               <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-900">
-                343 Verified Events
+                {totalDecEvents} Verified Events
               </span>
             </div>
             <p className="mt-1 text-xs text-slate-500 max-w-3xl">
-              Step through the 343 status transitions that occurred between Dec 1 and Dec 31, 2025. 
-              Observe how the end-of-month delivery rush unfolds and notice the critical stall in Lakeside Toyota's lead outreach.
+              Step through the {totalDecEvents} status transitions that occurred between Dec 1 and Dec 31, 2025.
+              Observe how the end-of-month delivery rush unfolds
+              {watchBranch ? ` and notice the critical stall in ${watchBranch.branchName}'s lead outreach` : ''}.
             </p>
           </div>
 
@@ -214,7 +222,7 @@ export const DecemberSimulator: React.FC<DecemberSimulatorProps> = ({ data }) =>
           <span className="text-xl font-black text-emerald-700 block mt-1">
             {decDeliveries.length} units
           </span>
-          <span className="text-[10px] text-slate-400">Total Dec: 52</span>
+          <span className="text-[10px] text-slate-400">Total Dec: {totalDecDeliveries}</span>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
@@ -222,7 +230,7 @@ export const DecemberSimulator: React.FC<DecemberSimulatorProps> = ({ data }) =>
           <span className="text-xl font-black text-slate-900 block mt-1">
             {formatINR(decRevenue)}
           </span>
-          <span className="text-[10px] text-slate-400">Target: ₹12.23 Cr</span>
+          <span className="text-[10px] text-slate-400">Target: {formatINR(decTargetRevenue)}</span>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
@@ -252,7 +260,7 @@ export const DecemberSimulator: React.FC<DecemberSimulatorProps> = ({ data }) =>
         <div className="bg-white border border-slate-200 rounded-xl p-3.5 shadow-xs">
           <span className="text-[11px] font-medium text-slate-500 block">Events Processed</span>
           <span className="text-xl font-black text-purple-700 block mt-1">
-            {eventsUpToDay.length} / 343
+            {eventsUpToDay.length} / {totalDecEvents}
           </span>
           <span className="text-[10px] text-slate-400">Audit entries</span>
         </div>
@@ -280,13 +288,13 @@ export const DecemberSimulator: React.FC<DecemberSimulatorProps> = ({ data }) =>
           ) : (
             eventsOnCurrentDay.map((e, idx) => {
               const isDelivery = e.status === 'delivered';
-              const isLakeside = e.branchId === 'B3';
+              const isWatch = e.branchId === watchBranchId;
 
               return (
-                <div 
-                  key={`${e.leadId}-${idx}`} 
+                <div
+                  key={`${e.leadId}-${idx}`}
                   className={`p-3 sm:px-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs transition-colors hover:bg-slate-50 ${
-                    isDelivery ? 'bg-emerald-50/40' : isLakeside ? 'bg-amber-50/30' : ''
+                    isDelivery ? 'bg-emerald-50/40' : isWatch ? 'bg-amber-50/30' : ''
                   }`}
                 >
                   <div className="flex items-center space-x-3">
