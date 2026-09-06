@@ -294,13 +294,13 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({ data }) =>
             Branch League Summary Table
           </h3>
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[34rem] text-left text-xs text-slate-700">
+          <table className="w-full text-left text-xs text-slate-700">
             <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
               <tr>
                 <th className="py-2.5 px-3">Branch</th>
-                <th className="py-2.5 px-3">City</th>
-                <th className="py-2.5 px-3 text-right">Leads</th>
-                <th className="py-2.5 px-3 text-right">Delivered</th>
+                <th className="py-2.5 px-3 hidden sm:table-cell">City</th>
+                <th className="py-2.5 px-3 text-right hidden sm:table-cell">Leads</th>
+                <th className="py-2.5 px-3 text-right hidden sm:table-cell">Delivered</th>
                 <th className="py-2.5 px-3 text-right">Conversion</th>
                 <th className="py-2.5 px-3 text-right">Never Contacted</th>
                 <th className="py-2.5 px-3 text-right">Revenue</th>
@@ -312,9 +312,9 @@ export const ExecutiveBriefing: React.FC<ExecutiveBriefingProps> = ({ data }) =>
                 .map((b) => (
                   <tr key={b.branchId} className={b.branchId === 'B3' ? 'bg-red-50 font-bold' : ''}>
                     <td className="py-2.5 px-3">{b.branchName}</td>
-                    <td className="py-2.5 px-3">{b.city}</td>
-                    <td className="py-2.5 px-3 text-right">{b.totalLeads}</td>
-                    <td className="py-2.5 px-3 text-right">{b.deliveredUnits}</td>
+                    <td className="py-2.5 px-3 hidden sm:table-cell">{b.city}</td>
+                    <td className="py-2.5 px-3 text-right hidden sm:table-cell">{b.totalLeads}</td>
+                    <td className="py-2.5 px-3 text-right hidden sm:table-cell">{b.deliveredUnits}</td>
                     <td className="py-2.5 px-3 text-right">{formatPct(b.conversionRate)}</td>
                     <td className="py-2.5 px-3 text-right">{formatPct(b.neverContactedRate)} ({b.neverContactedCount})</td>
                     <td className="py-2.5 px-3 text-right">{formatINR(b.deliveredRevenue)}</td>

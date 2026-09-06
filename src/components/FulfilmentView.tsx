@@ -160,9 +160,9 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
                 <th className="py-3 px-4">Delay Reason</th>
                 <th className="py-3 px-3 text-right">Units Affected</th>
                 <th className="py-3 px-3 text-right">% of All Delays</th>
-                <th className="py-3 px-3 text-right">% of Total Deliveries</th>
-                <th className="py-3 px-4">Operational Category</th>
-                <th className="py-3 px-4">Resolution Playbook</th>
+                <th className="py-3 px-3 text-right hidden md:table-cell">% of Total Deliveries</th>
+                <th className="py-3 px-4 hidden sm:table-cell">Operational Category</th>
+                <th className="py-3 px-4 hidden lg:table-cell">Resolution Playbook</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -187,11 +187,11 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
                       {formatPct(r.pctOfDelayed)}
                     </td>
 
-                    <td className="py-3 px-3 text-right font-medium text-slate-600">
+                    <td className="py-3 px-3 text-right font-medium text-slate-600 hidden md:table-cell">
                       {formatPct(r.pctOfTotal)}
                     </td>
 
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-4 hidden sm:table-cell">
                       <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${
                         r.category === 'dealer'
                           ? 'bg-amber-100 text-amber-800'
@@ -203,7 +203,7 @@ export const FulfilmentView: React.FC<FulfilmentViewProps> = ({ data }) => {
                       </span>
                     </td>
 
-                    <td className="py-3 px-4 text-slate-600 text-[11px]">
+                    <td className="py-3 px-4 text-slate-600 text-[11px] hidden lg:table-cell">
                       {playbook[r.category]}
                     </td>
                   </tr>

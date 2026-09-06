@@ -330,13 +330,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
             <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
               <tr>
                 <th className="py-3 px-4">Rank & Branch</th>
-                <th className="py-3 px-3">City</th>
-                <th className="py-3 px-3 text-right">Total Leads</th>
-                <th className="py-3 px-3 text-right">Delivered</th>
+                <th className="py-3 px-3 hidden md:table-cell">City</th>
+                <th className="py-3 px-3 text-right hidden md:table-cell">Total Leads</th>
+                <th className="py-3 px-3 text-right hidden md:table-cell">Delivered</th>
                 <th className="py-3 px-3 text-right">Conversion Rate</th>
-                <th className="py-3 px-3 text-right">Test Drive Rate</th>
+                <th className="py-3 px-3 text-right hidden lg:table-cell">Test Drive Rate</th>
                 <th className="py-3 px-3 text-right">Never Contacted</th>
-                <th className="py-3 px-3 text-right">Lost Rate</th>
+                <th className="py-3 px-3 text-right hidden lg:table-cell">Lost Rate</th>
                 <th className="py-3 px-4 text-right">Revenue</th>
                 <th className="py-3 px-4 text-center">Action</th>
               </tr>
@@ -385,15 +385,15 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-3 font-medium text-slate-600">
+                      <td className="py-3.5 px-3 font-medium text-slate-600 hidden md:table-cell">
                         {b.city}
                       </td>
 
-                      <td className="py-3.5 px-3 text-right font-semibold text-slate-900">
+                      <td className="py-3.5 px-3 text-right font-semibold text-slate-900 hidden md:table-cell">
                         {b.totalLeads}
                       </td>
 
-                      <td className="py-3.5 px-3 text-right font-bold text-slate-900">
+                      <td className="py-3.5 px-3 text-right font-bold text-slate-900 hidden md:table-cell">
                         {b.deliveredUnits}
                       </td>
 
@@ -410,7 +410,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
                         </div>
                       </td>
 
-                      <td className="py-3.5 px-3 text-right font-semibold text-slate-800">
+                      <td className="py-3.5 px-3 text-right font-semibold text-slate-800 hidden lg:table-cell">
                         {formatPct(b.testDriveRate)}
                       </td>
 
@@ -424,7 +424,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({ data }) => {
                         </span>
                       </td>
 
-                      <td className="py-3.5 px-3 text-right font-semibold text-slate-700">
+                      <td className="py-3.5 px-3 text-right font-semibold text-slate-700 hidden lg:table-cell">
                         {formatPct(b.lostRate)}
                       </td>
 

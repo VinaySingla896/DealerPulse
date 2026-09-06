@@ -208,13 +208,13 @@ export const TargetForecastView: React.FC<TargetForecastViewProps> = ({ data }) 
             <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
               <tr>
                 <th className="py-3 px-4">Branch</th>
-                <th className="py-3 px-3 text-right">Target</th>
-                <th className="py-3 px-3 text-right">Delivered</th>
+                <th className="py-3 px-3 text-right hidden md:table-cell">Target</th>
+                <th className="py-3 px-3 text-right hidden md:table-cell">Delivered</th>
                 <th className="py-3 px-3 text-right">Attainment</th>
-                <th className="py-3 px-3 w-48">Progress vs Target</th>
-                <th className="py-3 px-3 text-right">Open Pipe</th>
+                <th className="py-3 px-3 w-48 hidden lg:table-cell">Progress vs Target</th>
+                <th className="py-3 px-3 text-right hidden lg:table-cell">Open Pipe</th>
                 <th className="py-3 px-3 text-right">Projected</th>
-                <th className="py-3 px-3 text-right">vs Group Pace</th>
+                <th className="py-3 px-3 text-right hidden md:table-cell">vs Group Pace</th>
                 <th className="py-3 px-4 text-center">Status</th>
               </tr>
             </thead>
@@ -232,8 +232,8 @@ export const TargetForecastView: React.FC<TargetForecastViewProps> = ({ data }) 
                       <span className="font-bold text-slate-900 block">{f.branchName}</span>
                       <span className="text-[11px] text-slate-500">{f.city}</span>
                     </td>
-                    <td className="py-3 px-3 text-right font-semibold text-slate-900">{f.targetUnits}</td>
-                    <td className="py-3 px-3 text-right font-bold text-slate-900">{f.deliveredUnits}</td>
+                    <td className="py-3 px-3 text-right font-semibold text-slate-900 hidden md:table-cell">{f.targetUnits}</td>
+                    <td className="py-3 px-3 text-right font-bold text-slate-900 hidden md:table-cell">{f.deliveredUnits}</td>
                     <td className="py-3 px-3 text-right">
                       <span
                         className={`font-black ${
@@ -243,7 +243,7 @@ export const TargetForecastView: React.FC<TargetForecastViewProps> = ({ data }) 
                         {formatPct(f.attainmentUnitsPct)}
                       </span>
                     </td>
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 hidden lg:table-cell">
                       <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden flex">
                         <div className={`h-full ${meta.bar}`} style={{ width: `${deliveredPct * 100}%` }} />
                         <div
@@ -252,7 +252,7 @@ export const TargetForecastView: React.FC<TargetForecastViewProps> = ({ data }) 
                         />
                       </div>
                     </td>
-                    <td className="py-3 px-3 text-right text-slate-600">
+                    <td className="py-3 px-3 text-right text-slate-600 hidden lg:table-cell">
                       {formatINR(f.openPipelineValue)}
                       <span className="block text-[10px] text-slate-400">{f.openLeadsCount} leads</span>
                     </td>
@@ -262,7 +262,7 @@ export const TargetForecastView: React.FC<TargetForecastViewProps> = ({ data }) 
                         {formatPct(f.projectedAttainmentPct)}
                       </span>
                     </td>
-                    <td className="py-3 px-3 text-right font-bold">
+                    <td className="py-3 px-3 text-right font-bold hidden md:table-cell">
                       <span className={f.vsGroupPace >= 0.9 ? 'text-emerald-700' : 'text-red-700'}>
                         {formatPct(f.vsGroupPace)}
                       </span>

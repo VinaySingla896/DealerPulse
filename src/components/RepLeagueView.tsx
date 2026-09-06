@@ -83,11 +83,11 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
                 <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200 sticky top-0">
                   <tr>
                     <th className="py-2.5 px-4">Customer</th>
-                    <th className="py-2.5 px-3">Model</th>
+                    <th className="py-2.5 px-3 hidden sm:table-cell">Model</th>
                     <th className="py-2.5 px-3">Status</th>
                     <th className="py-2.5 px-3 text-right">Idle Days</th>
                     <th className="py-2.5 px-3 text-right">Deal Value</th>
-                    <th className="py-2.5 px-4">Latest Note</th>
+                    <th className="py-2.5 px-4 hidden md:table-cell">Latest Note</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -111,7 +111,7 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
                               {l.customer_name}
                             </span>
                           </td>
-                          <td className="py-2 px-3">{l.model_interested}</td>
+                          <td className="py-2 px-3 hidden sm:table-cell">{l.model_interested}</td>
                           <td className="py-2 px-3">
                             <span className="inline-flex px-1.5 py-0.5 rounded-sm text-[10px] font-bold uppercase bg-slate-100 text-slate-700">
                               {l.status.replace('_', ' ')}
@@ -123,7 +123,7 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
                           <td className="py-2 px-3 text-right font-bold text-slate-900">
                             {formatINR(l.deal_value)}
                           </td>
-                          <td className="py-2 px-4 max-w-xs truncate text-[11px] text-slate-500">
+                          <td className="py-2 px-4 max-w-xs truncate text-[11px] text-slate-500 hidden md:table-cell">
                             {l.status === 'lost'
                               ? displayLostReason(l.lost_reason)
                               : l.status_history[l.status_history.length - 1]?.note || '—'}
@@ -284,13 +284,13 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
             <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
               <tr>
                 <th className="py-3 px-4">Rank & Rep Name</th>
-                <th className="py-3 px-3">Branch</th>
-                <th className="py-3 px-3">Role</th>
-                <th className="py-3 px-3 text-right">Total Leads</th>
-                <th className="py-3 px-3 text-right">Delivered Units</th>
+                <th className="py-3 px-3 hidden md:table-cell">Branch</th>
+                <th className="py-3 px-3 hidden lg:table-cell">Role</th>
+                <th className="py-3 px-3 text-right hidden md:table-cell">Total Leads</th>
+                <th className="py-3 px-3 text-right hidden md:table-cell">Delivered Units</th>
                 <th className="py-3 px-3 text-right">Conversion Rate</th>
                 <th className="py-3 px-3 text-right">Delivered Rev</th>
-                <th className="py-3 px-3 text-right">Stalled Leads</th>
+                <th className="py-3 px-3 text-right hidden lg:table-cell">Stalled Leads</th>
                 <th className="py-3 px-4 text-center">Status / Outlier</th>
               </tr>
             </thead>
@@ -330,11 +330,11 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
                       </div>
                     </td>
 
-                    <td className="py-3 px-3 font-medium text-slate-700">
+                    <td className="py-3 px-3 font-medium text-slate-700 hidden md:table-cell">
                       {rep.branchName}
                     </td>
 
-                    <td className="py-3 px-3">
+                    <td className="py-3 px-3 hidden lg:table-cell">
                       <span className={`inline-flex px-1.5 py-0.5 rounded-sm text-[10px] font-semibold ${
                         rep.role === 'branch_manager'
                           ? 'bg-purple-50 text-purple-700 border border-purple-200'
@@ -344,11 +344,11 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
                       </span>
                     </td>
 
-                    <td className="py-3 px-3 text-right font-semibold text-slate-900">
+                    <td className="py-3 px-3 text-right font-semibold text-slate-900 hidden md:table-cell">
                       {rep.totalLeads}
                     </td>
 
-                    <td className="py-3 px-3 text-right font-bold text-slate-900">
+                    <td className="py-3 px-3 text-right font-bold text-slate-900 hidden md:table-cell">
                       {rep.deliveredUnits}
                     </td>
 
@@ -372,7 +372,7 @@ export const RepLeagueView: React.FC<RepLeagueViewProps> = ({ data }) => {
                       {formatINR(rep.deliveredRevenue)}
                     </td>
 
-                    <td className="py-3 px-3 text-right">
+                    <td className="py-3 px-3 text-right hidden lg:table-cell">
                       {rep.stalledLeadsCount > 0 ? (
                         <span className="inline-flex px-1.5 py-0.5 rounded-sm bg-amber-100 text-amber-900 font-bold text-[11px]">
                           {rep.stalledLeadsCount} stalled

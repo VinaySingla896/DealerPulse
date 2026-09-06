@@ -250,13 +250,13 @@ export const PipelineActionBoard: React.FC<PipelineActionBoardProps> = ({ data }
           <table className="w-full text-left text-xs text-slate-700">
             <thead className="bg-slate-50 text-slate-600 font-semibold border-b border-slate-200">
               <tr>
-                <th className="py-3 px-4">Lead ID & Customer</th>
-                <th className="py-3 px-3">Vehicle Model</th>
-                <th className="py-3 px-3">Branch & Rep</th>
+                <th className="py-3 px-2.5 sm:px-4">Lead ID & Customer</th>
+                <th className="py-3 px-3 hidden md:table-cell">Vehicle Model</th>
+                <th className="py-3 px-3 hidden lg:table-cell">Branch & Rep</th>
                 <th className="py-3 px-3">Stage</th>
                 <th className="py-3 px-3 text-right">Idle Days</th>
                 <th className="py-3 px-3 text-right">Deal Value</th>
-                <th className="py-3 px-3">Status Note / Reason</th>
+                <th className="py-3 px-3 hidden lg:table-cell">Status Note / Reason</th>
                 <th className="py-3 px-4 text-center">Action</th>
               </tr>
             </thead>
@@ -283,20 +283,20 @@ export const PipelineActionBoard: React.FC<PipelineActionBoardProps> = ({ data }
                         isSevere ? 'bg-amber-50/40' : ''
                       }`}
                     >
-                      <td className="py-3 px-4">
+                      <td className="py-3 px-2.5 sm:px-4">
                         <div className="font-bold text-slate-900">{lead.customer_name}</div>
                         <div className="text-[11px] text-slate-500 flex items-center space-x-1">
                           <span>{lead.id}</span>
-                          <span>·</span>
-                          <span>{lead.phone}</span>
+                          <span className="hidden sm:inline">·</span>
+                          <span className="hidden sm:inline">{lead.phone}</span>
                         </div>
                       </td>
 
-                      <td className="py-3 px-3 font-semibold text-slate-800">
+                      <td className="py-3 px-3 font-semibold text-slate-800 hidden md:table-cell">
                         {lead.model_interested}
                       </td>
 
-                      <td className="py-3 px-3">
+                      <td className="py-3 px-3 hidden lg:table-cell">
                         <div className="font-medium text-slate-900">{branch?.name}</div>
                         <div className="text-[11px] text-slate-500">{rep?.name}</div>
                       </td>
@@ -329,7 +329,7 @@ export const PipelineActionBoard: React.FC<PipelineActionBoardProps> = ({ data }
                         {formatINR(lead.deal_value)}
                       </td>
 
-                      <td className="py-3 px-3 max-w-xs truncate text-[11px] text-slate-600">
+                      <td className="py-3 px-3 max-w-xs truncate text-[11px] text-slate-600 hidden lg:table-cell">
                         {lead.status === 'lost' ? (
                           <span className="font-semibold text-slate-800">
                             {displayLostReason(lead.lost_reason)}

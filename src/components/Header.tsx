@@ -120,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
   ];
 
   return (
-    <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
+    <header className="bg-white border-b border-slate-200 relative md:sticky md:top-0 z-40 shadow-xs">
       {/* Top Banner: Brand, Context, and Emergency Fast Triggers */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between py-3 gap-3 border-b border-slate-100">
@@ -191,8 +191,8 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
 
         {/* Navigation Tabs and Global Filter Bar */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between py-2 gap-3">
-          {/* Main Navigation */}
-          <nav className="flex items-center space-x-1 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+          {/* Main Navigation — wraps to multiple rows on phones, single scrolling row from md up */}
+          <nav className="flex flex-wrap items-center gap-1 md:flex-nowrap md:overflow-x-auto md:pb-0 pb-1 scrollbar-none">
             {navItems.map((item) => {
               const active = currentView === item.id;
               return (
@@ -200,7 +200,7 @@ export const Header: React.FC<HeaderProps> = ({ data, fullData }) => {
                   key={item.id}
                   id={`nav-${item.id}`}
                   onClick={() => setCurrentView(item.id)}
-                  className={`inline-flex items-center px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
+                  className={`inline-flex items-center px-2.5 sm:px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-all whitespace-nowrap ${
                     active
                       ? 'bg-slate-900 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
